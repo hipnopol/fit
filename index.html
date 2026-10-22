@@ -358,8 +358,8 @@ function buzz(p){ if(db.settings.vib && navigator.vibrate) try{ navigator.vibrat
 /* ================== ekran zawsze włączony ================== */
 let wl = null;
 async function wake(){ try{ if(db.current && 'wakeLock' in navigator && !wl){ wl = await navigator.wakeLock.request('screen'); wl.addEventListener('release',()=>{wl=null}); } }catch(e){} }
-function sleep(){ try{ wl && wl.release(); }catch(e){} wl=null; }
-document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible'){ if(view==='workout' || (db.current && db.current.iv)) wake(); if(db.current && db.current.iv){ ivTick(); ivSchedule(); } tickLoop(); } });
+function sleep(){ try{ wl && wl.release(); }catch(e){} wl=null; if(!(db.current && (db.current.iv||db.current.restEnd))){ ivCancel(); keepAlive(false); } }
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible'){ if(view==='workout' || (db.current && db.current.iv)) wake(); if(db.current && db.current.iv){ ivTick(); ivSchedule(); } else if(db.current && db.current.restEnd) restSchedule(); tickLoop(); } });
 
 /* ================== pomocnicze ================== */
 const $ = s => document.querySelector(s);
@@ -524,6 +524,20 @@ function draft(){
   if(last) return ui.draft={ w:last[0].w, r:last[0].r };
   return ui.draft={ w: sp.noWeight?0:(sp.start||0), r: sp.lo };
 }
+// odliczanie końca przerwy: 10 s cichych tyknięć (ostatnie 3 głośniej) i dźwięk końca,
+// zaplanowane z góry, więc grają w słuchawkach także przy zgaszonym ekranie
+function restSchedule(){
+  ivCancel();
+  const cur=db.current; if(!cur || !cur.restEnd || cur.iv || !db.settings.sound) return;
+  const c=ac(); if(!c) return;
+  keepAlive(true);
+  COLLECT=true;
+  try{
+    const at=c.currentTime+(cur.restEnd-Date.now())/1000;
+    for(let k=10;k>=1;k--){ const t=at-k; if(t>c.currentTime+0.02) sfx.tick(k<=3?0.16:0.07, t); }
+    if(at>c.currentTime) sfx.wood(at);
+  } finally { COLLECT=false; }
+}
 function saveSet(){
   const cur=db.current, ex=PLAN[cur.type].ex[cur.idx], en=cur.entries[cur.idx], sp=spec(ex,en), d=draft();
   const s={ w: sp.noWeight?0:num(d.w), r: num(d.r) };
@@ -535,7 +549,7 @@ function saveSet(){
     const exs=PLAN[cur.type].ex, mem=exs.map((e,i)=>e.circuit===ex.circuit?i:-1).filter(i=>i>=0), r=en.sets.length;
     let nxt=mem.slice(mem.indexOf(cur.idx)+1).find(i=>cur.entries[i].sets.length<r && cur.entries[i].sets.length<exs[i].sets), rest=sp.rest;
     if(nxt===undefined){ nxt=mem.find(i=>cur.entries[i].sets.length<exs[i].sets); rest=ROUND_REST; }
-    if(nxt!==undefined){ cur.idx=nxt; cur.restTotal=rest; cur.restEnd=Date.now()+rest*1000; ui.draft=null; save(); render(); scrollTo(0,0); return; }
+    if(nxt!==undefined){ cur.idx=nxt; cur.restTotal=rest; cur.restEnd=Date.now()+rest*1000; restSchedule(); ui.draft=null; save(); render(); scrollTo(0,0); return; }
     cur.restTotal=ROUND_REST; cur.restEnd=Date.now()+ROUND_REST*1000;
   }
   if(en.sets.length>=sp.sets){
@@ -543,7 +557,7 @@ function saveSet(){
     const any = nxt>=0 ? nxt : cur.entries.findIndex((e,i)=>e.sets.length<PLAN[cur.type].ex[i].sets);
     if(any>=0) cur.idx=any;
   }
-  ui.draft=null; save(); render();
+  restSchedule(); ui.draft=null; save(); render();
 }
 async function finish(auto){
   const cur=db.current; if(!cur) return;
@@ -592,13 +606,11 @@ function tickLoop(){
       else if(cur.restEnd){
         const left=(cur.restEnd-Date.now())/1000;
         if(left<=0){
-          cur.restEnd=0; save();
-          if(document.visibilityState==='visible'){ sfx.wood(); }
+          cur.restEnd=0; save(); keepAlive(false);
           buzz([70,60,70]); render();
         }else{
           const t=$('#restT'); if(t) t.textContent=mmss(Math.ceil(left));
           if(line) line.style.width=(100*left/cur.restTotal)+'%';
-          const sec=Math.ceil(left); if(sec<=3 && sec!==lastTick){ lastTick=sec; if(document.visibilityState==='visible') sfx.tick(); }
         }
       } else if(line) line.style.width='0';
     } else if(line) line.style.width='0';
@@ -900,7 +912,7 @@ document.addEventListener('click', async e=>{
     case 'tskip': timedGo(cur.idx+1); break;
     case 'tprev': timedGo(cur.idx-1); break;
     case 'tgo': timedGo(+b.dataset.i); break;
-    case 'skip': cur.restEnd=0; save(); render(); break;
+    case 'skip': cur.restEnd=0; ivCancel(); keepAlive(false); save(); render(); break;
     case 'extra': ui.extra=cur.idx; ui.draft=null; render(); break;
     case 'edit': ui.editing=+b.dataset.k; ui.draft=null; render(); break;
     case 'canceledit': ui.editing=null; ui.draft=null; render(); break;
@@ -910,7 +922,7 @@ document.addEventListener('click', async e=>{
 });
 let holdT=null;
 document.addEventListener('pointerdown', e=>{
-  if(AC===null || (AC && AC.state==='suspended')){ ac(); if(db.current && db.current.iv){ keepAlive(true); ivSchedule(); } }
+  if(AC===null || (AC && AC.state==='suspended')){ ac(); if(db.current && db.current.iv){ keepAlive(true); ivSchedule(); } else if(db.current && db.current.restEnd) restSchedule(); }
   const h=e.target.closest('#hold'); if(!h) return;
   h.classList.add('on'); holdT=setTimeout(()=>{ ui.locked=false; sfx.tick(.25); render(); ivPaint(); }, 700);
 });
