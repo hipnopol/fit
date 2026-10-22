@@ -136,6 +136,10 @@ h2{font-size:26px;line-height:1.2;font-weight:500;margin:0;letter-spacing:-.01em
   padding:20px 20px calc(24px + env(safe-area-inset-bottom,0px))}
 .modal .box{width:100%;max-width:520px;background:var(--bg);border:1px solid var(--line);padding:22px 20px 20px}
 .modal p{margin:0 0 8px;font-size:17px;line-height:1.45}
+.plan-val{display:flex;width:100%;justify-content:space-between;align-items:baseline;margin-top:18px;padding:14px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.plan-val .v{font-size:30px;font-weight:500;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.savebar{position:sticky;bottom:0;z-index:4;margin:0 -20px;padding:10px 20px calc(10px + env(safe-area-inset-bottom,0px));background:var(--bg)}
+.savebar .primary{margin-top:0;height:96px;font-size:20px}
 @media (prefers-reduced-motion:reduce){.seg,.res .l,.res .pr{transition:none}}
 </style>
 </head>
@@ -255,9 +259,9 @@ const KEY = 'fit.v1';
 let db = load();
 function load(){
   try{ const s = JSON.parse(localStorage.getItem(KEY));
-    if(s && Array.isArray(s.sessions)) return { sessions:s.sessions, current:s.current||null, settings:Object.assign({sound:true,vib:true}, s.settings) };
+    if(s && Array.isArray(s.sessions)) return { sessions:s.sessions, current:s.current||null, settings:Object.assign({sound:true,vib:true,headset:false}, s.settings) };
   }catch(e){}
-  return { sessions:[], current:null, settings:{sound:true, vib:true} };
+  return { sessions:[], current:null, settings:{sound:true, vib:true, headset:false} };
 }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(db)); }catch(e){} }
 try{ navigator.storage && navigator.storage.persist && navigator.storage.persist(); }catch(e){}
@@ -357,8 +361,8 @@ function buzz(p){ if(db.settings.vib && navigator.vibrate) try{ navigator.vibrat
 
 /* ================== ekran zawsze włączony ================== */
 let wl = null;
-async function wake(){ try{ if(db.current && 'wakeLock' in navigator && !wl){ wl = await navigator.wakeLock.request('screen'); wl.addEventListener('release',()=>{wl=null}); } }catch(e){} }
-function sleep(){ try{ wl && wl.release(); }catch(e){} wl=null; if(!(db.current && (db.current.iv||db.current.restEnd))){ ivCancel(); keepAlive(false); } }
+async function wake(){ headsetOn(); try{ if(db.current && 'wakeLock' in navigator && !wl){ wl = await navigator.wakeLock.request('screen'); wl.addEventListener('release',()=>{wl=null}); } }catch(e){} }
+function sleep(){ if(!db.current) headsetOff(); try{ wl && wl.release(); }catch(e){} wl=null; if(!(db.current && (db.current.iv||db.current.restEnd))){ ivCancel(); keepAlive(false); } }
 document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible'){ if(view==='workout' || (db.current && db.current.iv)) wake(); if(db.current && db.current.iv){ ivTick(); ivSchedule(); } else if(db.current && db.current.restEnd) restSchedule(); tickLoop(); } });
 
 /* ================== pomocnicze ================== */
@@ -524,7 +528,7 @@ function draft(){
   if(last) return ui.draft={ w:last[0].w, r:last[0].r };
   return ui.draft={ w: sp.noWeight?0:(sp.start||0), r: sp.lo };
 }
-// odliczanie końca przerwy: 10 s cichych tyknięć (ostatnie 3 głośniej) i dźwięk końca,
+// odliczanie końca przerwy: 10 s tyknięć co sekundę (ostatnie 3 s dwa razy na sekundę) i dźwięk końca,
 // zaplanowane z góry, więc grają w słuchawkach także przy zgaszonym ekranie
 function restSchedule(){
   ivCancel();
@@ -534,10 +538,43 @@ function restSchedule(){
   COLLECT=true;
   try{
     const at=c.currentTime+(cur.restEnd-Date.now())/1000;
-    for(let k=10;k>=1;k--){ const t=at-k; if(t>c.currentTime+0.02) sfx.tick(k<=3?0.16:0.07, t); }
+    for(let k=10;k>=0.5;k-=(k>3?1:0.5)){ const t=at-k; if(t>c.currentTime+0.02) sfx.tick(k<=3?0.1:0.07, t); }
     if(at>c.currentTime) sfx.wood(at);
   } finally { COLLECT=false; }
 }
+/* ---------- przycisk w słuchawkach (play/pauza) zapisuje serię ---------- */
+let MA=null;
+function silentWav(){
+  const n=8000, b=new ArrayBuffer(44+n), v=new DataView(b), w=(o,t)=>[...t].forEach((c,i)=>v.setUint8(o+i,c.charCodeAt(0)));
+  w(0,'RIFF'); v.setUint32(4,36+n,true); w(8,'WAVE'); w(12,'fmt '); v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
+  v.setUint32(24,8000,true); v.setUint32(28,8000,true); v.setUint16(32,1,true); v.setUint16(34,8,true); w(36,'data'); v.setUint32(40,n,true);
+  for(let i=0;i<n;i++) v.setUint8(44+i,128);
+  return URL.createObjectURL(new Blob([b],{type:'audio/wav'}));
+}
+function headsetOn(){
+  if(!db.settings.headset || !db.current || !('mediaSession' in navigator)) return;
+  if(!MA){ MA=new Audio(silentWav()); MA.loop=true; }
+  MA.play().catch(()=>{});
+  try{ navigator.mediaSession.metadata=new MediaMetadata({ title:'Fit: '+curName(db.current), artist:'Przycisk w słuchawkach zapisuje serię' }); }catch(e){}
+  ['play','pause','nexttrack'].forEach(a=>{ try{ navigator.mediaSession.setActionHandler(a, headsetPress); }catch(e){} });
+  try{ navigator.mediaSession.playbackState='playing'; }catch(e){}
+}
+function headsetOff(){
+  if(MA) MA.pause();
+  if('mediaSession' in navigator) ['play','pause','nexttrack'].forEach(a=>{ try{ navigator.mediaSession.setActionHandler(a, null); }catch(e){} });
+}
+function headsetPress(){
+  if(MA) MA.play().catch(()=>{});
+  const cur=db.current; if(!cur) return;
+  if(cur.type==='R'){ const iv=cur.iv, st=iv&&iv.steps[iv.i]; if(st && st.open){ document.querySelector('[data-a=ivdone]') ? $('[data-a=ivdone]').click() : null; } return; }
+  if(PLAN[cur.type].timed || cur.iv) return;
+  if(Date.now()-(cur.lastAt||0) < 10000){ sfx.tick(.2); return; }   // ochrona przed podwójnym kliknięciem
+  const ex=PLAN[cur.type].ex[cur.idx], en=cur.entries[cur.idx], sp=spec(ex,en);
+  if(sp.interval || en.sets.length>=sp.sets){ sfx.rest(); buzz([60,60,60]); return; }  // ćwiczenie zrobione: dokończ na ekranie
+  ui.editing=null; ui.extra=null; if(view!=='workout'){ view='workout'; }
+  saveSet();
+}
+
 function saveSet(){
   const cur=db.current, ex=PLAN[cur.type].ex[cur.idx], en=cur.entries[cur.idx], sp=spec(ex,en), d=draft();
   const s={ w: sp.noWeight?0:num(d.w), r: num(d.r) };
@@ -661,6 +698,7 @@ function vHome(){
     <button data-a="import">Wczytaj kopię</button>
     <button data-a="sound">Dźwięk: ${db.settings.sound?'wł.':'wył.'}</button>
     <button data-a="vib">Wibracje: ${db.settings.vib?'wł.':'wył.'}</button>
+    <button data-a="headset">Przycisk w słuchawkach: ${db.settings.headset?'wł.':'wył.'}</button>
   </div><input type="file" id="file" accept="application/json,.json" hidden>`;
   return h;
 }
@@ -720,11 +758,15 @@ function vWorkout(){
                      : `<button class="primary" data-a="nextopen">Następne ćwiczenie</button>`;
     h += `<button class="secondary" data-a="extra">Dodaj serię</button>`;
   } else {
-    if(!sp.noWeight) h += stepper('w', d.w, 'kg', sp.step);
-    h += stepper('r', d.r, sp.unit, sp.unit==='powt.'?1:5);
+    if(ui.adjust || ui.editing!==null){
+      if(!sp.noWeight) h += stepper('w', d.w, 'kg', sp.step);
+      h += stepper('r', d.r, sp.unit, sp.unit==='powt.'?1:5);
+    } else {
+      h += `<button class="plan-val" data-a="adjust"><span class="v">${sp.noWeight?'':fmt(num(d.w))+' kg × '}${fmt(num(d.r))} ${sp.unit}</span><span class="mid small">zmień</span></button>`;
+    }
     h += ui.editing!==null
       ? `<button class="primary" data-a="save">Zapisz poprawkę</button><button class="secondary" data-a="delset">Usuń serię</button><button class="secondary" data-a="canceledit">Anuluj</button>`
-      : `<button class="primary" data-a="save">Zapisz serię ${en.sets.length+1}</button>`;
+      : `<div class="savebar"><button class="primary" data-a="save">Zapisz serię ${en.sets.length+1}</button></div>`;
   }
   h += `<div class="nav"><button data-a="prev" ${cur.idx===0?'disabled':''}>‹ Poprzednie</button><button data-a="next" ${cur.idx===plan.ex.length-1?'disabled':''}>Następne ›</button></div>`;
   h += `<div class="links"><button data-a="finish">Zakończ trening</button><button data-a="home">Ekran główny</button></div>`;
@@ -892,22 +934,25 @@ document.addEventListener('click', async e=>{
     case 'del': if(await ask('Usunąć ten trening z historii?', 'Usuń')){ db.sessions=db.sessions.filter(s=>s.id!==b.dataset.id); save(); render(); } break;
     case 'sound': db.settings.sound=!db.settings.sound; save(); render(); if(db.settings.sound){ ac(); sfx.click(); } break;
     case 'vib': db.settings.vib=!db.settings.vib; save(); render(); buzz(30); break;
+    case 'headset': db.settings.headset=!db.settings.headset; save(); render();
+      if(db.settings.headset) toast('Na treningu przycisk play/pauza w słuchawkach zapisze serię. Może wstrzymywać muzykę.'); else headsetOff(); break;
     case 'export': {
       const blob=new Blob([JSON.stringify({app:'fit',v:1,sessions:db.sessions},null,1)],{type:'application/json'});
       const u=URL.createObjectURL(blob), l=document.createElement('a'); l.href=u; l.download='fit-kopia-'+new Date().toISOString().slice(0,10)+'.json';
       document.body.appendChild(l); l.click(); l.remove(); setTimeout(()=>URL.revokeObjectURL(u),2000); break; }
     case 'import': $('#file').click(); break;
     case 'act': cur.act=!cur.act; save(); render(); break;
-    case 'go': cur.idx=+b.dataset.i; ui.draft=null; ui.editing=null; save(); render(); break;
-    case 'prev': if(cur.idx>0){ cur.idx--; ui.draft=null; ui.editing=null; save(); render(); scrollTo(0,0);} break;
-    case 'next': if(cur.idx<PLAN[cur.type].ex.length-1){ cur.idx++; ui.draft=null; ui.editing=null; save(); render(); scrollTo(0,0);} break;
+    case 'go': ui.adjust=false; cur.idx=+b.dataset.i; ui.draft=null; ui.editing=null; save(); render(); break;
+    case 'prev': ui.adjust=false; if(cur.idx>0){ cur.idx--; ui.draft=null; ui.editing=null; save(); render(); scrollTo(0,0);} break;
+    case 'next': ui.adjust=false; if(cur.idx<PLAN[cur.type].ex.length-1){ cur.idx++; ui.draft=null; ui.editing=null; save(); render(); scrollTo(0,0);} break;
     case 'nextopen': { const i=cur.entries.findIndex((en,i)=>en.sets.length<PLAN[cur.type].ex[i].sets); if(i>=0){ cur.idx=i; ui.draft=null; save(); render(); scrollTo(0,0);} break; }
     case 'variant': cur.entries[cur.idx].variant=b.dataset.v; ui.draft=null; save(); render(); break;
     case 'bump': { const sp=spec(PLAN[cur.type].ex[cur.idx],cur.entries[cur.idx]); const d=draft(); d.w=num(d.w)+sp.step; sfx.tick(.2); render(); break; }
     case 'inc': case 'dec': {
       const d=draft(), f=b.dataset.f, s=+b.dataset.s; let v=num(d[f])+(a==='inc'?s:-s); v=Math.max(0,Math.round(v*100)/100);
       d[f]=v; const inp=$('#in-'+f); if(inp) inp.value=fmt(v,2); sfx.tick(.14); break; }
-    case 'save': saveSet(); break;
+    case 'save': ui.adjust=false; saveSet(); break;
+    case 'adjust': ui.adjust=true; render(); break;
     case 'tnext': cur.lastAt=Date.now(); cur.entries[cur.idx].sets=[{w:0,r:1}]; sfx.click(); buzz(15); timedGo(cur.idx+1); break;
     case 'tskip': timedGo(cur.idx+1); break;
     case 'tprev': timedGo(cur.idx-1); break;
