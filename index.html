@@ -434,7 +434,10 @@ function ivSchedule(){
     let j=iv.i, endMs=iv.t0+iv.steps[j].dur*1000;
     for(;;){
       const at=c.currentTime+(endMs-Date.now())/1000, nx=iv.steps[j+1];
-      for(let k=3;k>=1;k--){ if(at-k > c.currentTime+0.02) sfx.tick(0.12, at-k); }
+      // jak w przerwie na siłowni: 10 s tyknięć co sekundę, ostatnie 3 s dwa razy na sekundę
+      // (przy krótkich odcinkach, poniżej 30 s, tylko ostatnie 3 s)
+      const lead = iv.steps[j].dur>=30 ? 10 : 3;
+      for(let k=lead;k>=0.5;k-=(k>3?1:0.5)){ if(at-k > c.currentTime+0.02) sfx.tick(k<=3?0.1:0.07, at-k); }
       if(at > c.currentTime){ if(!nx || nx.k!=='work') sfx.rest(at); else sfx.go(at); }
       if(!nx || !nx.dur) break;
       j++; endMs += nx.dur*1000;
