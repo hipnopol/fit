@@ -325,6 +325,12 @@ const sfx = {
     burst(c, t+0.022, 0.018, 4200, 2, 0.18);
   },
   // tyknięcie: odliczanie i liczniki
+  // odliczanie: krótki, jasny ton (dobrze słyszalny w otwartych słuchawkach przy ulicy)
+  beep(last, at){ const c=ac(); if(!c||!db.settings.sound) return; const t=at || c.currentTime+0.003;
+    const f = last ? 1760 : 1320, v = last ? 0.55 : 0.4, len = last ? 0.07 : 0.06;
+    const x=tone(c, t, 'square', f, len, v, 0.002); out(c, x.g, 5000); x.o.start(t); x.o.stop(x.end);
+    const y=tone(c, t, 'sine', f*2, len*0.7, v*0.4, 0.002); out(c, y.g); y.o.start(t); y.o.stop(y.end);
+  },
   tick(v=0.12, at){ const c=ac(); if(!c||!db.settings.sound) return; burst(c, at || c.currentTime+0.003, 0.012, 4800, 3, v); },
   // koniec przerwy: drewniany klocek, dwa tony
   wood(at){ this.blocks([392, 523.25], at); },
@@ -437,7 +443,7 @@ function ivSchedule(){
       // jak w przerwie na siłowni: 10 s tyknięć co sekundę, ostatnie 3 s dwa razy na sekundę
       // (przy krótkich odcinkach, poniżej 30 s, tylko ostatnie 3 s)
       const lead = iv.steps[j].dur>=30 ? 10 : 3;
-      for(let k=lead;k>=0.5;k-=(k>3?1:0.5)){ if(at-k > c.currentTime+0.02) sfx.tick(k<=3?0.1:0.07, at-k); }
+      for(let k=lead;k>=0.5;k-=(k>3?1:0.5)){ if(at-k > c.currentTime+0.02) sfx.beep(k<=3, at-k); }
       if(at > c.currentTime){ if(!nx || nx.k!=='work') sfx.rest(at); else sfx.go(at); }
       if(!nx || !nx.dur) break;
       j++; endMs += nx.dur*1000;
@@ -541,7 +547,7 @@ function restSchedule(){
   COLLECT=true;
   try{
     const at=c.currentTime+(cur.restEnd-Date.now())/1000;
-    for(let k=10;k>=0.5;k-=(k>3?1:0.5)){ const t=at-k; if(t>c.currentTime+0.02) sfx.tick(k<=3?0.1:0.07, t); }
+    for(let k=10;k>=0.5;k-=(k>3?1:0.5)){ const t=at-k; if(t>c.currentTime+0.02) sfx.beep(k<=3, t); }
     if(at>c.currentTime) sfx.wood(at);
   } finally { COLLECT=false; }
 }
@@ -569,8 +575,11 @@ function headsetOff(){
 function headsetPress(){
   if(MA) MA.play().catch(()=>{});
   const cur=db.current; if(!cur) return;
-  if(cur.type==='R'){ const iv=cur.iv, st=iv&&iv.steps[iv.i]; if(st && st.open){ document.querySelector('[data-a=ivdone]') ? $('[data-a=ivdone]').click() : null; } return; }
-  if(PLAN[cur.type].timed || cur.iv) return;
+  if(cur.type==='R' || cur.iv){ const iv=cur.iv, st=iv&&iv.steps[iv.i]; if(!st) return;
+    if(st.open){ const b=$('[data-a=ivdone]'); if(b) b.click(); }
+    else { ivPause(); if(cur.iv.paused){ sfx.rest(); buzz([200]); } else { sfx.go(); buzz([80,60,80]); } }
+    return; }
+  if(PLAN[cur.type].timed) return;
   if(Date.now()-(cur.lastAt||0) < 10000){ sfx.tick(.2); return; }   // ochrona przed podwójnym kliknięciem
   const ex=PLAN[cur.type].ex[cur.idx], en=cur.entries[cur.idx], sp=spec(ex,en);
   if(sp.interval || en.sets.length>=sp.sets){ sfx.rest(); buzz([60,60,60]); return; }  // ćwiczenie zrobione: dokończ na ekranie
