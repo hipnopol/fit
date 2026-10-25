@@ -140,6 +140,17 @@ h2{font-size:26px;line-height:1.2;font-weight:500;margin:0;letter-spacing:-.01em
 .plan-val .v{font-size:30px;font-weight:500;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .savebar{position:sticky;bottom:0;z-index:4;margin:0 -20px;padding:10px 20px calc(10px + env(safe-area-inset-bottom,0px));background:var(--bg)}
 .savebar .primary{margin-top:0;height:96px;font-size:20px}
+.tpbox{margin-top:26px;padding:18px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.tpbox .t{font-size:72px;line-height:1;font-weight:500;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.tpbox #tpPh{font-size:22px;color:var(--ink)}
+.tcheck{display:block;margin-top:16px;padding:8px 0;color:var(--mid);font-size:14px}
+.cadrow{display:flex;align-items:baseline;gap:12px;margin-top:22px;padding-top:14px;border-top:1px solid var(--line)}
+.cadrow b{font-weight:500;font-size:20px;font-variant-numeric:tabular-nums}
+.metro{display:grid;grid-template-columns:1fr 52px auto 52px;align-items:center;gap:8px;margin-top:10px}
+.metro button{height:48px;border:1px solid var(--line);text-align:center;color:var(--mid)}
+.metro .mt{text-align:left;padding:0 14px}
+.metro .mt.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.metro span{text-align:center;font-variant-numeric:tabular-nums;padding:0 4px;white-space:nowrap;font-size:14px}
 @media (prefers-reduced-motion:reduce){.seg,.res .l,.res .pr{transition:none}}
 </style>
 </head>
@@ -160,21 +171,21 @@ const PLAN = {
     // superserie: dwa ćwiczenia na zmianę przy jednym stanowisku
     { id:'dbbench',name:'Wyciskanie hantli leżąc',         sets:3, lo:8,  hi:10, rest:25, circuit:'a1', step:2, start:20, note:'płaska ławka; ciężar jednego hantla' },
     { id:'row1',   name:'Wiosłowanie hantlem jednorącz',   sets:3, lo:8,  hi:10, rest:25, circuit:'a1', step:2, start:16, note:'na stronę, podparcie na tej samej ławce' },
-    { id:'bulg',   name:'Przysiad bułgarski',              sets:3, lo:8,  hi:10, rest:25, circuit:'a2', step:2, start:8,  note:'na stronę, hantle w dłoniach' },
-    { id:'calf',   name:'Wspięcia na palce',               sets:3, lo:15, hi:15, rest:25, circuit:'a2', step:2, start:0, note:'hantel w ręce, krawędź talerza lub stopnia; 0 = bez ciężaru' },
-    { id:'face',   name:'Face pull',                       sets:3, lo:12, hi:15, rest:25, circuit:'a3', step:2.5, start:15, note:'wyciąg, lina na wysokości twarzy' },
-    { id:'pallof', name:'Pallof press',                    sets:3, lo:10, hi:10, rest:25, circuit:'a3', step:2.5, start:10, note:'ten sam wyciąg na wysokości klatki, stojąc bokiem; na stronę' },
+    { id:'bulg',   name:'Przysiad bułgarski',              sets:3, lo:8,  hi:10, rest:25, circuit:'a2', step:2, start:8,  sides:2, tempo:[3,0,1,0], note:'na stronę, hantle w dłoniach' },
+    { id:'calf',   name:'Wspięcia na palce',               sets:3, lo:15, hi:15, rest:25, circuit:'a2', step:2, start:0, tempo:[3,1,1,1], note:'hantel w ręce, krawędź talerza lub stopnia; 0 = bez ciężaru' },
+    { id:'face',   name:'Face pull',                       sets:3, lo:12, hi:15, rest:25, circuit:'a3', step:2.5, start:15, tempo:[2,0,1,1], note:'wyciąg, lina na wysokości twarzy' },
+    { id:'pallof', name:'Pallof press',                    sets:3, lo:10, hi:10, rest:25, circuit:'a3', step:2.5, start:10, sides:2, tempo:[1,2,1,0], tempoWords:['wypchnij','trzymaj','powrót',''], note:'ten sam wyciąg na wysokości klatki, stojąc bokiem; na stronę' },
   ]},
   B: { name: 'Trening B', ex: [
-    { id:'rdl',    name:'Martwy ciąg rumuński',            sets:3, lo:6,  hi:8,  rest:120, step:2.5, start:40, note:'2–3 powtórzenia w zapasie; w tygodniu testu 5 km o serię mniej' },
+    { id:'rdl',    name:'Martwy ciąg rumuński',            sets:3, lo:6,  hi:8,  rest:120, step:2.5, start:40, tempo:[3,0,1,0], note:'2–3 powtórzenia w zapasie; w tygodniu testu 5 km o serię mniej' },
     { id:'pull',   name:'Podciąganie',                     sets:3, lo:6,  hi:10, rest:25, circuit:'b1', step:2.5, start:0, note:'ciężar dodatkowy, 0 = masa ciała' },
     { id:'ohp',    name:'Wyciskanie hantli nad głowę',     sets:3, lo:8,  hi:10, rest:25, circuit:'b1', step:2,   start:12, note:'na stojąco przy drążku; ciężar jednego hantla' },
     { id:'incline',name:'Wyciskanie hantli na skosie',     sets:3, lo:10, hi:12, rest:25, circuit:'b2', step:2,   start:14, note:'ciężar jednego hantla' },
     { id:'csrow',  name:'Wiosłowanie w podporze na skosie',sets:3, lo:10, hi:12, rest:25, circuit:'b2', step:2,   start:12, note:'leżąc przodem na tej samej ławce; ciężar jednego hantla' },
     { id:'post',   name:'Tył uda i pośladki',              sets:2, lo:10, hi:12, rest:90,  step:2.5, start:40, variants:[
-        { id:'hipthrust', name:'Hip thrust' },
+        { id:'hipthrust', name:'Hip thrust', tempo:[2,0,1,2] },
         { id:'legcurl',   name:'Uginanie nóg na maszynie', start:20 },
-        { id:'nordic',    name:'Nordic curl', noWeight:true, lo:4, hi:8 } ] },
+        { id:'nordic',    name:'Nordic curl', noWeight:true, lo:4, hi:8, tempo:[4,0,2,0], tempoWords:['opuszczaj','','powrót z rąk',''] } ] },
     { id:'farmer', name:'Spacer farmera',                  sets:3, lo:30, hi:40, rest:90,  step:2,   start:20, unit:'m', note:'ciężar jednego hantla' },
     { id:'fin',    name:'Finiszer: wioślarz',              sets:1, lo:6, hi:6, rest:0, unit:'rund', noWeight:true, optional:true,
       note:'Opcjonalnie, gdy zostaje czas. W tygodniu testu 5 km odpuść.',
@@ -280,6 +291,7 @@ try{ navigator.storage && navigator.storage.persist && navigator.storage.persist
     });
     c.idx=Math.min(Math.max(0,c.idx|0), plan.ex.length-1);
     if(c.iv) c.iv=null;
+    if(c.tp && Date.now()-c.tp.t0 > c.tp.total*1000+60000) c.tp=null;
   }catch(e){ db.current=null; }
   save();
 })();
@@ -302,7 +314,7 @@ function burst(c, t, dur, freq, q, vol){
   const s = c.createBufferSource(); s.buffer = noiseBuf(c, dur);
   const f = c.createBiquadFilter(); f.type='bandpass'; f.frequency.value=freq; f.Q.value=q;
   const g = c.createGain(); g.gain.value = vol;
-  s.connect(f).connect(g).connect(c.destination); s.start(t); if(COLLECT) SCHED.push(s);
+  s.connect(f).connect(g).connect(c.destination); s.start(t); if(COLLECT) (COLLECT===true?SCHED:COLLECT).push(s);
 }
 function tone(c, t, type, freq, dur, vol, attack=0.004, freqEnd){
   const o = c.createOscillator(), g = c.createGain();
@@ -311,7 +323,7 @@ function tone(c, t, type, freq, dur, vol, attack=0.004, freqEnd){
   g.gain.setValueAtTime(0.0001, t);
   g.gain.exponentialRampToValueAtTime(vol, t+attack);
   g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
-  o.connect(g); if(COLLECT) SCHED.push(o); return { o, g, end:t+dur+0.02 };
+  o.connect(g); if(COLLECT) (COLLECT===true?SCHED:COLLECT).push(o); return { o, g, end:t+dur+0.02 };
 }
 function out(c, node, lp){
   if(lp){ const f=c.createBiquadFilter(); f.type='lowpass'; f.frequency.value=lp; node.connect(f).connect(c.destination); }
@@ -331,6 +343,11 @@ const sfx = {
     const x=tone(c, t, 'square', f, len, v, 0.002); out(c, x.g, 5000); x.o.start(t); x.o.stop(x.end);
     const y=tone(c, t, 'sine', f*2, len*0.7, v*0.4, 0.002); out(c, y.g); y.o.start(t); y.o.stop(y.end);
   },
+  // tempo: początek opuszczania (niski), kolejne sekundy (cichsze), ruch w górę (wysoki)
+  tdown(at){ const c=ac(); if(!c||!db.settings.sound) return; const x=tone(c, at, 'triangle', 392, 0.14, 0.55, 0.003); out(c, x.g); x.o.start(at); x.o.stop(x.end); },
+  tsec(at){ const c=ac(); if(!c||!db.settings.sound) return; const x=tone(c, at, 'triangle', 330, 0.06, 0.35, 0.002); out(c, x.g); x.o.start(at); x.o.stop(x.end); },
+  tup(at){ const c=ac(); if(!c||!db.settings.sound) return; const x=tone(c, at, 'square', 988, 0.1, 0.4, 0.002); out(c, x.g, 4500); x.o.start(at); x.o.stop(x.end); },
+  metro(at){ const c=ac(); if(!c||!db.settings.sound) return; burst(c, at, 0.02, 2400, 2, 0.6); const x=tone(c, at, 'sine', 1150, 0.035, 0.3, 0.002); out(c, x.g); x.o.start(at); x.o.stop(x.end); },
   tick(v=0.12, at){ const c=ac(); if(!c||!db.settings.sound) return; burst(c, at || c.currentTime+0.003, 0.012, 4800, 3, v); },
   // koniec przerwy: drewniany klocek, dwa tony
   wood(at){ this.blocks([392, 523.25], at); },
@@ -369,7 +386,7 @@ function buzz(p){ if(db.settings.vib && navigator.vibrate) try{ navigator.vibrat
 let wl = null;
 async function wake(){ headsetOn(); try{ if(db.current && 'wakeLock' in navigator && !wl){ wl = await navigator.wakeLock.request('screen'); wl.addEventListener('release',()=>{wl=null}); } }catch(e){} }
 function sleep(){ if(!db.current) headsetOff(); try{ wl && wl.release(); }catch(e){} wl=null; if(!(db.current && (db.current.iv||db.current.restEnd))){ ivCancel(); keepAlive(false); } }
-document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible'){ if(view==='workout' || (db.current && db.current.iv)) wake(); if(db.current && db.current.iv){ ivTick(); ivSchedule(); } else if(db.current && db.current.restEnd) restSchedule(); tickLoop(); } });
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible'){ if(view==='workout' || (db.current && db.current.iv)) wake(); if(db.current && db.current.iv){ ivTick(); ivSchedule(); } else if(db.current && db.current.tp) tpSchedule(); else if(db.current && db.current.restEnd) restSchedule(); tickLoop(); } });
 
 /* ================== pomocnicze ================== */
 const $ = s => document.querySelector(s);
@@ -451,14 +468,14 @@ function ivSchedule(){
   } finally { COLLECT=false; }
 }
 function ivGo(target, logIt){
-  const c=db.current, iv=c.iv;
+  const c=db.current, iv=c.iv; metroCancel();
   if(logIt) iv.log[iv.i]=ivElapsed(iv); else delete iv.log[iv.i];
   iv.i=Math.max(0,target); iv.t0=Date.now(); iv.paused=false; c.lastAt=Date.now();
   if(iv.i>=iv.steps.length){ ivDone(); return; }
   ivSchedule(); save(); render();
 }
 function ivPause(){
-  const iv=db.current.iv;
+  const iv=db.current.iv; metroCancel();
   if(iv.paused){ iv.t0 += Date.now()-iv.pAt; iv.paused=false; ivSchedule(); }
   else { iv.pAt=Date.now(); iv.paused=true; ivCancel(); }
   sfx.tick(.2); save(); render();
@@ -484,6 +501,7 @@ function ivTick(){
       save();
       if(iv.i>=iv.steps.length){ buzz([300]); ivDone(); return; }
       if(document.visibilityState==='visible') buzz(iv.steps[iv.i].k==='work' ? [120,80,120] : [300]);
+      metroCancel();
       if(view==='workout') render();
     }
   }
@@ -491,15 +509,60 @@ function ivTick(){
 }
 function ivPaint(){
   const iv=db.current && db.current.iv; if(!iv) return;
+  if(db.current.type==='R'){ const cn=cadNow(); ['#cadT','#cadT2'].forEach(q=>{ const e=$(q); if(e) e.textContent = cn ? cn : '–'; }); }
   const st=iv.steps[iv.i]; if(!st) return;
   const el=ivElapsed(iv)/1000, txt = st.dur ? mmss(Math.ceil(Math.max(0, st.dur-el))) : mmss(el);
   ['#ivT','#ivT2'].forEach(q=>{ const t=$(q); if(t) t.textContent=txt; });
   const line=$('#restline i'); if(line) line.style.width = st.dur ? (100*Math.max(0,st.dur-el)/st.dur)+'%' : '0';
 }
+/* ---------- kadencja z czujnika ruchu + metronom ---------- */
+const CAD={ on:false, m:9.8, mean:9.8, v:2, above:false, last:0, t:[] };
+function onMotion(e){
+  const a=e.accelerationIncludingGravity; if(!a || a.x==null) return;
+  const mag=Math.hypot(a.x,a.y,a.z);
+  CAD.m += 0.35*(mag-CAD.m);                 // wygładzenie
+  CAD.mean += 0.01*(CAD.m-CAD.mean);         // wolna średnia
+  const dv=CAD.m-CAD.mean; CAD.v += 0.01*(dv*dv-CAD.v);
+  const thr=Math.max(1.2, 0.7*Math.sqrt(CAD.v)), now=performance.now();
+  if(dv>thr){
+    if(!CAD.above && now-CAD.last>260){       // max ~230 kroków/min
+      CAD.last=now; CAD.t.push(Date.now()); if(CAD.t.length>80) CAD.t.shift();
+      const c=db.current, iv=c&&c.iv, st=iv&&iv.steps[iv.i];
+      if(c && c.type==='R' && st && st.k==='work' && !iv.paused){ c.cadSteps=(c.cadSteps||0)+1; }
+    }
+    CAD.above=true;
+  } else if(dv<thr*0.3) CAD.above=false;
+}
+function cadStart(){ if(CAD.on) return; CAD.on=true; CAD.t=[]; window.addEventListener('devicemotion', onMotion); }
+function cadStop(){ CAD.on=false; window.removeEventListener('devicemotion', onMotion); }
+function cadNow(){
+  const now=Date.now(), t=CAD.t.filter(x=>now-x<10000);
+  if(t.length<8 || now-t[t.length-1]>1500) return null;
+  return Math.round((t.length-1)/((t[t.length-1]-t[0])/60000));
+}
+function lastCad(){ const s=[...db.sessions].reverse().find(x=>x.type==='R' && x.cad); return s ? s.cad : null; }
+function metroSpm(){ return db.settings.metroSpm || (lastCad() ? Math.round(lastCad()*1.05) : 165); }
+const METRO={ next:0, nodes:[] };
+function metroCancel(){ METRO.nodes.forEach(n=>{ try{ n.stop(); }catch(e){} }); METRO.nodes=[]; METRO.next=0; }
+function metroPump(){
+  const c=db.current, iv=c&&c.iv, st=iv&&iv.steps[iv.i];
+  const play = db.settings.metro && db.settings.sound && c && c.type==='R' && st && st.k==='work' && !st.minor && !iv.paused;
+  if(!play){ if(METRO.nodes.length || METRO.next) metroCancel(); return; }
+  const a=ac(); if(!a) return;
+  const step=120/metroSpm();                  // tyknięcie co drugi krok
+  METRO.nodes=METRO.nodes.filter(n=>!n._done);
+  if(METRO.next < a.currentTime) METRO.next=a.currentTime+0.15;
+  let limit=a.currentTime+4;
+  if(st.dur) limit=Math.min(limit, a.currentTime+(iv.t0+st.dur*1000-Date.now())/1000-0.05);
+  COLLECT=METRO.nodes;
+  try{ while(METRO.next<limit){ sfx.metro(METRO.next); METRO.next+=step; } } finally { COLLECT=false; }
+  if(METRO.nodes.length>200) METRO.nodes=METRO.nodes.slice(-60);
+}
+
 function startRun(id){
   ac();
   db.current = { id:Date.now().toString(36), type:'R', runId:id, start:Date.now(), idx:0, entries:[], iv:null };
-  ui.locked=false; view='workout';
+  ui.locked=false; view='workout'; cadStart();
   ivStart(RUN[id].steps.map(x=>Object.assign({}, x)), null);
 }
 async function finishRun(auto){
@@ -513,12 +576,13 @@ async function finishRun(auto){
   const keys=steps.map((s,i)=>({ s, i })).filter(x=>x.s.open && !x.s.nolog && log[x.i]!==undefined)
     .map(x=>({ label:x.s.label.replace(/^\d+ z \d+, /,''), ms:log[x.i], tag:x.s.tag||null }));
   const done=work.filter(i=>log[i]!==undefined).length;
-  ivStop();
+  const workMs=work.reduce((a,i)=>a+(log[i]||0),0), cad = (c.cadSteps||0)>=100 && workMs>60000 ? Math.round(c.cadSteps/(workMs/60000)) : null;
+  ivStop(); cadStop(); metroCancel();
   if(!done && !keys.length){ db.current=null; save(); sleep(); ui.locked=false; view='home'; render(); return; }
   const prev=best5k(), k5=keys.find(k=>k.tag==='5k');
-  const sess={ id:c.id, type:'R', runId:c.runId, name:run.group+', '+run.name, start:c.start, end, entries:[], done, total:work.length, keys, hip:null };
+  const sess={ id:c.id, type:'R', runId:c.runId, name:run.group+', '+run.name, start:c.start, end, entries:[], done, total:work.length, keys, hip:null, cad };
   db.sessions.push(sess);
-  ui.results={ run:true, sid:sess.id, title:run.group+', '+run.name.toLowerCase(), time:(end-c.start)/1000, done, total:work.length, keys,
+  ui.results={ run:true, cad, sid:sess.id, title:run.group+', '+run.name.toLowerCase(), time:(end-c.start)/1000, done, total:work.length, keys,
     pr: k5 ? (prev===null ? 'Pierwszy pomiar 5 km' : k5.ms<prev ? 'Rekord na 5 km, o '+mmss((prev-k5.ms)/1000)+' szybciej' : 'Najlepsze 5 km: '+mmss(prev/1000)) : null };
   db.current=null; ui.locked=false; save(); sleep(); view='results'; render(); playResults();
 }
@@ -580,12 +644,81 @@ function headsetPress(){
     else { ivPause(); if(cur.iv.paused){ sfx.rest(); buzz([200]); } else { sfx.go(); buzz([80,60,80]); } }
     return; }
   if(PLAN[cur.type].timed) return;
+  if(cur.tp){ tpFinish(false); return; }   // w trakcie serii z tempem: koniec teraz
   if(Date.now()-(cur.lastAt||0) < 10000){ sfx.tick(.2); return; }   // ochrona przed podwójnym kliknięciem
   const ex=PLAN[cur.type].ex[cur.idx], en=cur.entries[cur.idx], sp=spec(ex,en);
   if(sp.interval || en.sets.length>=sp.sets){ sfx.rest(); buzz([60,60,60]); return; }  // ćwiczenie zrobione: dokończ na ekranie
   ui.editing=null; ui.extra=null; if(view!=='workout'){ view='workout'; }
+  if(tempoOn(ex,en)){ tpStart(); return; }
   saveSet();
 }
+
+/* ---------- tempo: metronom serii z liczbą powtórzeń z planu ---------- */
+const TEMPO_WORDS=['w dół','pauza','w górę','góra'];
+const tempoKey = (ex,en) => en.variant || ex.id;
+function tempoOn(ex,en){ const sp=spec(ex,en); return !!sp.tempo && !(db.settings.tempoOff||{})[tempoKey(ex,en)]; }
+function tpBuild(tempo, reps, sides){
+  const seg=[]; let t=0;
+  seg.push({ k:'lead', s:0, d:3 }); t=3;
+  for(let side=1; side<=sides; side++){
+    if(side>1){ seg.push({ k:'switch', s:t, d:5, side }); t+=5; }
+    for(let r=1; r<=reps; r++) tempo.forEach((d,ph)=>{ if(d>0){ seg.push({ k:'ph', ph, rep:r, side, s:t, d }); t+=d; } });
+  }
+  return { seg, total:t };
+}
+function tpSchedule(){
+  ivCancel();
+  const cur=db.current, tp=cur && cur.tp; if(!tp || !db.settings.sound) return;
+  const c=ac(); if(!c) return;
+  const base=c.currentTime+(tp.t0-Date.now())/1000;
+  COLLECT=true;
+  try{
+    tp.seg.forEach(g=>{
+      const at=base+g.s;
+      if(g.k==='lead'){ [0,1,2].forEach(k=>{ if(at+k>c.currentTime) sfx.beep(false, at+k); }); return; }
+      if(g.k==='switch'){ if(at>c.currentTime) sfx.rest(at); [2,3,4].forEach(k=>{ if(at+k>c.currentTime) sfx.beep(false, at+k); }); return; }
+      if(at<c.currentTime) return;
+      if(g.ph===0){ sfx.tdown(at); for(let k=1;k<g.d;k++) sfx.tsec(at+k); }
+      else if(g.ph===2) sfx.tup(at);
+      else if(g.d>=2) for(let k=1;k<g.d;k++) sfx.tsec(at+k);
+    });
+    const end=base+tp.total; if(end>c.currentTime) sfx.wood(end);
+  } finally { COLLECT=false; }
+}
+function tpStart(){
+  const cur=db.current, ex=PLAN[cur.type].ex[cur.idx], en=cur.entries[cur.idx], sp=spec(ex,en), d=draft();
+  const reps=Math.max(1, Math.round(num(d.r)));
+  cur.restEnd=0; ac(); keepAlive(true);
+  cur.tp=Object.assign({ idx:cur.idx, reps, sides:sp.sides||1, tempo:sp.tempo, words:sp.tempoWords||TEMPO_WORDS, t0:Date.now() }, tpBuild(sp.tempo, reps, sp.sides||1));
+  tpSchedule(); save(); wake(); render(); scrollTo(0,0);
+}
+function tpState(){
+  const tp=db.current.tp, el=(Date.now()-tp.t0)/1000;
+  const g=tp.seg.find(x=>el>=x.s && el<x.s+x.d) || null;
+  const side = g ? (g.side||1) : tp.sides;
+  const done = tp.seg.filter(x=>x.k==='ph' && x.ph===2 && (x.side||1)===side && x.s+x.d<=el).length;
+  return { el, g, side, done };
+}
+function tpTick(){
+  const cur=db.current, tp=cur.tp; if(!tp) return;
+  const st=tpState();
+  if(st.el>=tp.total){ tpFinish(true); return; }
+  const r=$('#tpRep'), ph=$('#tpPh');
+  if(r) r.textContent = (st.g && st.g.k==='ph' ? Math.min(st.done+1, tp.reps) : st.done)+' / '+tp.reps;
+  if(ph) ph.textContent = !st.g ? '' : st.g.k==='lead' ? 'start za '+Math.ceil(3-st.el) : st.g.k==='switch' ? 'zmiana strony' : (tp.words[st.g.ph]||TEMPO_WORDS[st.g.ph]) + (tp.sides>1 ? ', strona '+st.side : '');
+}
+function tpFinish(full){
+  const cur=db.current, tp=cur.tp; if(!tp) return;
+  const st=tpState();
+  // przerwane wcześniej: zapisujemy powtórzenia ukończone na bieżącej stronie
+  const repsFinal = full ? tp.reps : st.done;
+  cur.tp=null; ivCancel(); keepAlive(false);
+  if(cur.idx!==tp.idx){ cur.idx=tp.idx; ui.draft=null; }
+  if(repsFinal<1){ sfx.rest(); save(); render(); return; }
+  const d=draft(); d.r=repsFinal; ui.editing=null; ui.extra=null;
+  saveSet();
+}
+function tpCancel(){ const cur=db.current; if(!cur || !cur.tp) return; cur.tp=null; ivCancel(); keepAlive(false); sfx.rest(); save(); render(); }
 
 function saveSet(){
   const cur=db.current, ex=PLAN[cur.type].ex[cur.idx], en=cur.entries[cur.idx], sp=spec(ex,en), d=draft();
@@ -611,6 +744,7 @@ function saveSet(){
 async function finish(auto){
   const cur=db.current; if(!cur) return;
   if(cur.type==='R'){ finishRun(auto); return; }
+  if(cur.tp){ cur.tp=null; ivCancel(); }
   if(cur.iv){ if(!auto && !(await ask('Finiszer trwa. Zakończyć trening?', 'Zakończ'))) return; if(db.current!==cur) return; ivStop(); }
   const entries = cur.entries.filter(e=>e.sets.length);
   if(PLAN[cur.type].timed){
@@ -648,10 +782,11 @@ function tickLoop(){
   const step=()=>{
     const cur=db.current;
     const line=$('#restline i');
-    if(cur && cur.iv){ ivTick(); const clock=$('#clock'); if(clock) clock.textContent=mmss((Date.now()-cur.start)/1000); }
+    if(cur && cur.iv){ ivTick(); if(cur.type==='R') metroPump(); const clock=$('#clock'); if(clock) clock.textContent=mmss((Date.now()-cur.start)/1000); }
     else if(cur && view==='workout'){
       const clock=$('#clock'); if(clock) clock.textContent=mmss((Date.now()-cur.start)/1000);
       if(PLAN[cur.type].timed){ if(line) line.style.width='0'; }
+      else if(cur.tp){ tpTick(); if(line) line.style.width='0'; }
       else if(cur.restEnd){
         const left=(cur.restEnd-Date.now())/1000;
         if(left<=0){
@@ -760,6 +895,14 @@ function vWorkout(){
     h += `<li><button class="${cls}" ${s?`data-a="edit" data-k="${k}"`:'tabindex="-1"'}><span class="n">${k+1}</span><span>${s?setText(s,sp):(k===en.sets.length?'teraz':'')}</span></button></li>`;
   }
   h += `</ul>`;
+  if(cur.tp && cur.tp.idx===cur.idx){
+    h += `<div class="tpbox"><span class="t" id="tpRep">0 / ${cur.tp.reps}</span><div class="mid" id="tpPh" style="margin-top:6px">start</div>
+      <div class="mid small" style="margin-top:10px">tempo ${cur.tp.tempo.join('-')}${cur.tp.sides>1?', obie strony':''}</div></div>
+      <div class="savebar"><button class="primary" data-a="tpstop">Koniec serii teraz</button></div>
+      <button class="secondary" data-a="tpcancel">Anuluj serię</button>`;
+    h += `<div class="links"><button data-a="finish">Zakończ trening</button><button data-a="home">Ekran główny</button></div>`;
+    return h;
+  }
   if(cur.restEnd && ui.editing===null){
     h += `<div class="rest"><span class="t" id="restT">${mmss(Math.ceil((cur.restEnd-Date.now())/1000))}</span><button data-a="skip">Pomiń przerwę</button></div>`;
   }
@@ -778,7 +921,12 @@ function vWorkout(){
     }
     h += ui.editing!==null
       ? `<button class="primary" data-a="save">Zapisz poprawkę</button><button class="secondary" data-a="delset">Usuń serię</button><button class="secondary" data-a="canceledit">Anuluj</button>`
-      : `<div class="savebar"><button class="primary" data-a="save">Zapisz serię ${en.sets.length+1}</button></div>`;
+      : tempoOn(ex,en)
+        ? `<button class="tcheck" data-a="tptoggle">[×] Prowadź tempo ${sp.tempo.join('-')}</button>
+           <div class="savebar"><button class="primary" data-a="tpstart">Start serii ${en.sets.length+1}</button></div>
+           <button class="secondary" data-a="save">Zapisz bez tempa</button>`
+        : (sp.tempo ? `<button class="tcheck" data-a="tptoggle">[ ] Prowadź tempo ${sp.tempo.join('-')}</button>` : '')
+          + `<div class="savebar"><button class="primary" data-a="save">Zapisz serię ${en.sets.length+1}</button></div>`;
   }
   h += `<div class="nav"><button data-a="prev" ${cur.idx===0?'disabled':''}>‹ Poprzednie</button><button data-a="next" ${cur.idx===plan.ex.length-1?'disabled':''}>Następne ›</button></div>`;
   h += `<div class="links"><button data-a="finish">Zakończ trening</button><button data-a="home">Ekran główny</button></div>`;
@@ -807,11 +955,17 @@ function vRun(){
   let h = `<div class="row"><h1>${run.name}</h1><span class="mid" id="clock">${mmss((Date.now()-cur.start)/1000)}</span></div>`;
   h += ivBar(iv) + `<div class="row small mid" style="margin-top:10px"><span>${run.group}</span><span>${works.length>1?'odcinek '+wpos+' z '+works.length:''}</span></div>`;
   h += ivBlock(iv, true);
+  const lc=lastCad(), on=db.settings.metro;
+  h += `<div class="cadrow"><span style="white-space:nowrap">kadencja <b id="cadT">–</b> kr/min</span></div>
+    <div class="mid small" style="margin-top:4px">${lc?'ostatnio średnio '+lc+' kr/min. ':''}Telefon w kieszeni, ekran włączony (np. zablokowany w aplikacji).</div>
+    <div class="metro"><button class="mt ${on?'on':''}" data-a="metro" aria-pressed="${on}">Metronom</button>
+      <button data-a="mdec" aria-label="wolniej">−</button><span>${metroSpm()} kr/min</span><button data-a="minc" aria-label="szybciej">+</button></div>`;
   h += `<div class="links"><button data-a="lock">Zablokuj ekran</button><button data-a="finish">Zakończ bieg</button><button data-a="home">Ekran główny</button></div>`;
   if(ui.locked){
     const st=iv.steps[iv.i], nx=iv.steps[iv.i+1];
     h += `<div class="lock"><div class="mid">${st.label}</div><div class="t" id="ivT2"></div>
       <div class="mid small">${nx?'Potem: '+nx.label.toLowerCase()+(nx.dur?', '+mmss(nx.dur):''):'To ostatni odcinek'}</div>
+      <div class="mid small">kadencja <span id="cadT2">–</span></div>
       <button class="hold" id="hold">Przytrzymaj, aby odblokować</button></div>`;
   }
   return h;
@@ -855,6 +1009,7 @@ function vResults(){
     <div class="l" data-v="${r.time}" data-k="time"><span>czas całkowity</span><span>0:00</span></div>
     <div class="l" data-v="${r.done}" data-k="sets"><span>odcinki biegu</span><span>0/${r.total}</span></div>
     ${r.keys.map(k=>`<div class="l" data-v="${k.ms/1000}" data-k="time"><span>${k.label.toLowerCase()}</span><span>0:00</span></div>`).join('')}
+    ${r.cad?`<div class="l" data-v="${r.cad}" data-k="cad"><span>kadencja średnio</span><span>0</span></div>`:''}
     ${r.pr?`<div class="pr">${r.pr}</div>`:''}
     <div class="hipb"><span class="mid small">Biodro</span><button data-a="hip" data-v="ok">bez bólu</button><button data-a="hip" data-v="bol">bolało</button></div>
     <button class="primary" style="margin-top:30px" data-a="home">Dalej</button></div>`;
@@ -873,7 +1028,7 @@ function vResults(){
 function playResults(){
   const r=ui.results, lines=[...document.querySelectorAll('.res .l')], prs=[...document.querySelectorAll('.res .pr')];
   const show=(el,k,v)=>{ const s=el.lastElementChild;
-    s.textContent = k==='time'?mmss(v): k==='sets'? Math.round(v)+'/'+r.total : k==='vol'? fmt(Math.round(v),0)+' kg' : (v>0?'+':'')+Math.round(v); };
+    s.textContent = k==='time'?mmss(v): k==='sets'? Math.round(v)+'/'+r.total : k==='vol'? fmt(Math.round(v),0)+' kg' : k==='cad'? Math.round(v)+' kr/min' : (v>0?'+':'')+Math.round(v); };
   if(matchMedia('(prefers-reduced-motion: reduce)').matches){
     lines.forEach(l=>{ l.classList.add('on'); show(l,l.dataset.k,+l.dataset.v); }); prs.forEach(p=>p.classList.add('on')); sfx.fanfare(); return;
   }
@@ -901,6 +1056,7 @@ function vHistory(){
     if(ui.open===s.id && s.type==='R'){
       h+=`<div class="det"><div><span>odcinki biegu</span><span class="mid">${s.done}/${s.total}</span></div>`
         +(s.keys||[]).map(k=>`<div><span>${k.label}</span><span class="mid">${mmss(k.ms/1000)}</span></div>`).join('')
+        +(s.cad?`<div><span>kadencja</span><span class="mid">${s.cad} kr/min</span></div>`:'')
         +`<div><span>biodro</span><span class="mid">${s.hip==='ok'?'bez bólu':s.hip==='bol'?'bolało':'brak wpisu'}</span></div>`
         +`<button class="del" data-a="del" data-id="${s.id}">Usuń ten bieg</button></div></li>`;
       return;
@@ -954,9 +1110,9 @@ document.addEventListener('click', async e=>{
       document.body.appendChild(l); l.click(); l.remove(); setTimeout(()=>URL.revokeObjectURL(u),2000); break; }
     case 'import': $('#file').click(); break;
     case 'act': cur.act=!cur.act; save(); render(); break;
-    case 'go': ui.adjust=false; cur.idx=+b.dataset.i; ui.draft=null; ui.editing=null; save(); render(); break;
-    case 'prev': ui.adjust=false; if(cur.idx>0){ cur.idx--; ui.draft=null; ui.editing=null; save(); render(); scrollTo(0,0);} break;
-    case 'next': ui.adjust=false; if(cur.idx<PLAN[cur.type].ex.length-1){ cur.idx++; ui.draft=null; ui.editing=null; save(); render(); scrollTo(0,0);} break;
+    case 'go': ui.adjust=false; if(cur.tp) return; cur.idx=+b.dataset.i; ui.draft=null; ui.editing=null; save(); render(); break;
+    case 'prev': ui.adjust=false; if(cur.tp) return; if(cur.idx>0){ cur.idx--; ui.draft=null; ui.editing=null; save(); render(); scrollTo(0,0);} break;
+    case 'next': ui.adjust=false; if(cur.tp) return; if(cur.idx<PLAN[cur.type].ex.length-1){ cur.idx++; ui.draft=null; ui.editing=null; save(); render(); scrollTo(0,0);} break;
     case 'nextopen': { const i=cur.entries.findIndex((en,i)=>en.sets.length<PLAN[cur.type].ex[i].sets); if(i>=0){ cur.idx=i; ui.draft=null; save(); render(); scrollTo(0,0);} break; }
     case 'variant': cur.entries[cur.idx].variant=b.dataset.v; ui.draft=null; save(); render(); break;
     case 'bump': { const sp=spec(PLAN[cur.type].ex[cur.idx],cur.entries[cur.idx]); const d=draft(); d.w=num(d.w)+sp.step; sfx.tick(.2); render(); break; }
@@ -965,6 +1121,12 @@ document.addEventListener('click', async e=>{
       d[f]=v; const inp=$('#in-'+f); if(inp) inp.value=fmt(v,2); sfx.tick(.14); break; }
     case 'save': ui.adjust=false; saveSet(); break;
     case 'adjust': ui.adjust=true; render(); break;
+    case 'metro': db.settings.metro=!db.settings.metro; save(); metroCancel(); render(); ivPaint(); break;
+    case 'mdec': case 'minc': db.settings.metroSpm=Math.max(130, Math.min(200, metroSpm()+(a==='minc'?2:-2))); save(); metroCancel(); render(); ivPaint(); sfx.tick(.2); break;
+    case 'tpstart': ui.adjust=false; tpStart(); break;
+    case 'tpstop': tpFinish(false); break;
+    case 'tpcancel': tpCancel(); break;
+    case 'tptoggle': { const ex=PLAN[cur.type].ex[cur.idx], k=tempoKey(ex,cur.entries[cur.idx]); db.settings.tempoOff=db.settings.tempoOff||{}; db.settings.tempoOff[k]=!db.settings.tempoOff[k]; save(); render(); break; }
     case 'tnext': cur.lastAt=Date.now(); cur.entries[cur.idx].sets=[{w:0,r:1}]; sfx.click(); buzz(15); timedGo(cur.idx+1); break;
     case 'tskip': timedGo(cur.idx+1); break;
     case 'tprev': timedGo(cur.idx-1); break;
@@ -979,7 +1141,7 @@ document.addEventListener('click', async e=>{
 });
 let holdT=null;
 document.addEventListener('pointerdown', e=>{
-  if(AC===null || (AC && AC.state==='suspended')){ ac(); if(db.current && db.current.iv){ keepAlive(true); ivSchedule(); } else if(db.current && db.current.restEnd) restSchedule(); }
+  if(AC===null || (AC && AC.state==='suspended')){ ac(); if(db.current && db.current.iv){ keepAlive(true); ivSchedule(); } else if(db.current && db.current.tp){ keepAlive(true); tpSchedule(); } else if(db.current && db.current.restEnd) restSchedule(); }
   const h=e.target.closest('#hold'); if(!h) return;
   h.classList.add('on'); holdT=setTimeout(()=>{ ui.locked=false; sfx.tick(.25); render(); ivPaint(); }, 700);
 });
@@ -999,6 +1161,7 @@ document.addEventListener('change', e=>{
 });
 
 render(); tickLoop(); if(view==='workout') wake();
+if(db.current && db.current.type==='R') cadStart();
 if('serviceWorker' in navigator && location.protocol==='https:') navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
 </body>
