@@ -214,6 +214,7 @@ const SC = (() => {
     if (l.sub) { l.sub.gain.setTargetAtTime(0, t, .4); stopNodes(l.nodes, t + 2); }   // płynne przejście między presetami
     const sub = l.ctx.createGain(); sub.gain.value = 0; sub.connect(l.bed); sub.gain.setTargetAtTime(1, t, .6);
     l.env = makeEnv(l.ctx, sub, l.vox, true, l.B); l.sub = sub;
+    cancelPlan();
     const nodes = []; P[id].bed(l.env, nodes); l.nodes = nodes; l.id = id; lastT = 0;
     l.master.gain.cancelScheduledValues(t); l.master.gain.setTargetAtTime(Math.pow(vol(), 1.3), t, .5);
     setLevel(level, true);
@@ -221,7 +222,7 @@ const SC = (() => {
   function stop(fade = 1.5) {
     if (!L || !L.id) return;
     const t = L.ctx.currentTime; L.master.gain.cancelScheduledValues(t); L.master.gain.setTargetAtTime(0, t, fade / 3);
-    stopNodes(L.nodes, t + fade + .5); L.nodes = []; L.id = null; L.sub = null;
+    cancelPlan(); stopNodes(L.nodes, t + fade + .5); L.nodes = []; L.id = null; L.sub = null;
   }
   function setVol() { if (L && L.id) L.master.gain.setTargetAtTime(Math.pow(vol(), 1.3), L.ctx.currentTime, .3); }
   function setLevel(l, now) {
@@ -234,18 +235,58 @@ const SC = (() => {
   function duckWin(t0, t1) { if (!L || !L.id) return; const t = L.ctx.currentTime; if (t1 < t) return; L.duck.gain.setTargetAtTime(.3, Math.max(t, t0), .08); L.duck.gain.setTargetAtTime(1, t1, .4); }
   function duckHold(on) { if (!L || !L.id) return; const t = L.ctx.currentTime; L.duck.gain.cancelScheduledValues(t); L.duck.gain.setTargetAtTime(on ? .5 : 1, t, .2); }
   function duckReset() { if (!L) return; const t = L.ctx.currentTime; L.duck.gain.cancelScheduledValues(t); L.duck.gain.setTargetAtTime(1, t, .2); }
-  // odgłosy losowe, wywoływane z pętli aplikacji (co ~200 ms)
-  function update(l) {
-    if (l != null && Math.abs(l - level) > .01) setLevel(l);
-    if (!L || !L.id) return;
-    const now = performance.now() / 1000, dt = lastT ? Math.min(1, now - lastT) : 0; lastT = now;
-    const p = P[L.id], rate = p.dens[0] + (p.dens[1] - p.dens[0]) * level;
-    if (Math.random() < rate / 60 * dt) {
-      const ev = p.ev, keys = Object.keys(ev); let s = 0; keys.forEach(k => s += ev[k][0]); let r = Math.random() * s;
-      const k = keys.find(k => (r -= ev[k][0]) <= 0) || keys[0];
-      ev[k][1](L.env, L.ctx.currentTime + .05, rr(-.8, .8));
-    }
+  // ---------- planowanie z wyprzedzeniem ----------
+  // Aplikacja podaje oś czasu treningu jako punkty zmian {at (czas AudioContext), level, metro, spm}.
+  // Odgłosy i zmiany nastroju planujemy na kilka minut naprzód w czasie AudioContext,
+  // więc grają także przy zgaszonym ekranie, gdy przeglądarka usypia skrypty.
+  const same = (a, b) => a.level === b.level && !!a.metro === !!b.metro && (a.spm || 0) === (b.spm || 0);
+  function norm(pts) { const o = []; pts.forEach(p => { if (!o.length || !same(o[o.length - 1], p)) o.push(p); }); return o; }
+  function at(pts, t) { let v = null; for (const p of pts) { if (p.at <= t + 1e-3) v = p; else break; } return v; }
+  // czy nowa oś czasu zgadza się z tym, co już zaplanowano (do chwili `until`)
+  function consistent(planned, pts, now, until) {
+    const a = at(planned, now), b = at(pts, now); if (!a || !b || !same(a, b)) return false;
+    const fa = planned.filter(p => p.at > now + .3 && p.at < until), fb = pts.filter(p => p.at > now + .3 && p.at < until);
+    if (fa.length !== fb.length) return false;
+    for (let i = 0; i < fa.length; i++) if (Math.abs(fa[i].at - fb[i].at) > .3 || !same(fa[i], fb[i])) return false;
+    return true;
   }
+  const PL = { pts: [], until: 0, ev: [] };
+  function levelAt(l, t) {
+    level = l; if (!L || !L.id) return;
+    L.lp.frequency.setTargetAtTime(700 + 9000 * Math.pow(l, 1.6), t, 1.2);
+    L.bed.gain.setTargetAtTime(.5 + .5 * l, t, 1.2);
+  }
+  function cancelPlan() {
+    if (!L) return; const now = L.ctx.currentTime;
+    PL.ev.forEach(x => { if (x.at > now) try { x.n.stop(); } catch (e) {} });
+    PL.ev = PL.ev.filter(x => x.at <= now); PL.pts = []; PL.until = 0;
+    try { L.lp.frequency.cancelScheduledValues(now); L.bed.gain.cancelScheduledValues(now); } catch (e) {}
+  }
+  function fireAt(p, t) {
+    const ev = p.ev, keys = Object.keys(ev); let s = 0; keys.forEach(k => s += ev[k][0]); let r = Math.random() * s;
+    const k = keys.find(k => (r -= ev[k][0]) <= 0) || keys[0];
+    const tmp = [], prev = COLLECT; COLLECT = tmp;
+    try { ev[k][1](L.env, t, rr(-.8, .8)); } finally { COLLECT = prev; }
+    tmp.forEach(n => PL.ev.push({ n, at: t }));
+  }
+  function plan(raw, H = 180) {
+    if (!L || !L.id || !raw || !raw.length) return;
+    const now = L.ctx.currentTime, pts = norm(raw);
+    if (!PL.pts.length || !consistent(PL.pts, pts, now, PL.until)) { cancelPlan(); PL.until = now; }
+    if (PL.until > now + H - 30) { PL.pts = pts; return; }        // zapas jeszcze wystarcza
+    const end = now + H, from = Math.max(PL.until, now), p = P[L.id];
+    for (let i = 0; i < pts.length; i++) {
+      const a = Math.max(pts[i].at, from), b = Math.min(i + 1 < pts.length ? pts[i + 1].at : end, end);
+      if (b <= a) continue;
+      if (pts[i].at >= from - 1e-3 || a === from && PL.until === now) levelAt(pts[i].level, Math.max(pts[i].at, now));
+      const rate = p.dens[0] + (p.dens[1] - p.dens[0]) * pts[i].level;
+      let t = a + .05; for (;;) { t += -Math.log(1 - Math.random()) * 60 / rate; if (t >= b) break; fireAt(p, t); }
+    }
+    PL.pts = pts; PL.until = end;
+    PL.ev = PL.ev.filter(x => x.at > now - 10);
+  }
+  function update() {}   // zgodność wstecz: odgłosy są teraz planowane przez plan()
+
   // głos rytmu z aktywnego presetu; false = brak presetu (używa się dźwięków domyślnych)
   function voice(name, at, arg) {
     if (!L || !L.id || !db.settings.sound) return false;
@@ -272,5 +313,5 @@ const SC = (() => {
     return buf;
   }
 
-  return { P, IDS, start, stop, setVol, setLevel, update, voice, duckWin, duckHold, duckReset, preview, render, get id() { return L && L.id; } };
+  return { P, IDS, start, stop, setVol, setLevel, update, plan, consistent, norm, get _pl() { return PL; }, voice, duckWin, duckHold, duckReset, preview, render, get id() { return L && L.id; } };
 })();

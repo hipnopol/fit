@@ -507,7 +507,6 @@ function ivTick(){
       save();
       if(iv.i>=iv.steps.length){ buzz([300]); ivDone(); return; }
       if(document.visibilityState==='visible') buzz(iv.steps[iv.i].k==='work' ? [120,80,120] : [300]);
-      metroCancel();
       if(view==='workout') render();
     }
   }
@@ -548,21 +547,58 @@ function cadNow(){
 }
 function lastCad(){ const s=[...db.sessions].reverse().find(x=>x.type==='R' && x.cad); return s ? s.cad : null; }
 function metroSpm(){ return db.settings.metroSpm || (lastCad() ? Math.round(lastCad()*1.05) : 165); }
-const METRO={ next:0, nodes:[] };
-function metroCancel(){ METRO.nodes.forEach(n=>{ try{ n.stop(); }catch(e){} }); METRO.nodes=[]; METRO.next=0; }
-function metroPump(){
-  const c=db.current, iv=c&&c.iv, st=iv&&iv.steps[iv.i];
-  const play = db.settings.metro && db.settings.sound && c && c.type==='R' && st && st.k==='work' && !st.minor && !iv.paused;
-  if(!play){ if(METRO.nodes.length || METRO.next) metroCancel(); return; }
-  const a=ac(); if(!a) return;
-  const step=120/metroSpm();                  // tyknięcie co drugi krok
-  METRO.nodes=METRO.nodes.filter(n=>!n._done);
-  if(METRO.next < a.currentTime) METRO.next=a.currentTime+0.15;
-  let limit=a.currentTime+4;
-  if(st.dur) limit=Math.min(limit, a.currentTime+(iv.t0+st.dur*1000-Date.now())/1000-0.05);
-  COLLECT=METRO.nodes;
-  try{ while(METRO.next<limit){ sfx.metro(METRO.next); METRO.next+=step; } } finally { COLLECT=false; }
-  if(METRO.nodes.length>200) METRO.nodes=METRO.nodes.slice(-60);
+/* ---------- oś czasu treningu (dla planowania dźwięku z wyprzedzeniem) ----------
+   Punkty zmian {at: czas AudioContext, level: 0..1, metro, spm}. Pierwszy punkt to faktyczny
+   początek bieżącej fazy (może być w przeszłości), dzięki czemu kolejne wywołania są zgodne. */
+function stepLevel(st){ return st.k==='work' ? (st.minor?.9:1) : st.k==='prep' ? .3 : .35; }
+function scTimeline(H=180){
+  const c=ac(); if(!c) return [];
+  const now=c.currentTime, A=ms=>now+(ms-Date.now())/1000, cur=db.current, out=[];
+  if(!cur) return [{ at:0, level:.55 }];
+  if(cur.iv){
+    const iv=cur.iv;
+    if(iv.paused) return [{ at:A(iv.pAt), level:.25 }];
+    let t=iv.t0;
+    for(let j=iv.i;j<iv.steps.length;j++){
+      const st=iv.steps[j], m=cur.type==='R' && db.settings.metro && st.k==='work' && !st.minor;
+      out.push({ at:A(t), level:stepLevel(st), metro:m, spm:m?metroSpm():0 });
+      if(!st.dur) break;                 // odcinek na dystans: dalej nie wiadomo, kiedy się skończy
+      t+=st.dur*1000; if(A(t)>now+H) break;
+      if(j===iv.steps.length-1) out.push({ at:A(t), level:.3 });
+    }
+    return out;
+  }
+  if(PLAN[cur.type] && PLAN[cur.type].timed) return [{ at:A(cur.start), level:.45 }];
+  if(cur.tp){ out.push({ at:A(cur.tp.t0), level:.8 }); out.push({ at:A(cur.tp.t0+cur.tp.total*1000), level:.3 }); return out; }
+  if(cur.restEnd){ out.push({ at:A(cur.restEnd-cur.restTotal*1000), level:.3 }); out.push({ at:A(cur.restEnd), level:.6 }); return out; }
+  return [{ at:A(cur.lastAt||cur.start), level:.6 }];
+}
+// metronom biegu planowany na kilka minut naprzód (gra też przy zgaszonym ekranie)
+const METRO={ pts:[], until:0, nodes:[] };
+function metroCancel(){
+  const c=AC, now=c?c.currentTime:0;
+  METRO.nodes.forEach(x=>{ if(x.at>now-0.05) try{ x.n.stop(); }catch(e){} }); METRO.nodes=[]; METRO.pts=[]; METRO.until=0;
+}
+function metroPlan(raw, H=180){
+  const c=AC; if(!c) return;
+  const pts=SC.norm(raw||[]), any=pts.some(p=>p.metro);
+  if(!any || !db.settings.sound){ if(METRO.nodes.length||METRO.pts.length) metroCancel(); return; }
+  const now=c.currentTime;
+  if(!METRO.pts.length || !SC.consistent(METRO.pts, pts, now, METRO.until)){ metroCancel(); METRO.until=now; }
+  if(METRO.until > now+H-30){ METRO.pts=pts; return; }
+  const end=now+H, from=Math.max(METRO.until, now);
+  for(let i=0;i<pts.length;i++){
+    if(!pts[i].metro) continue;
+    const s0=pts[i].at, b=Math.min(i+1<pts.length?pts[i+1].at:end, end)-.05, step=120/pts[i].spm;   // co drugi krok
+    let k=Math.max(0, Math.ceil((from-s0)/step - 1e-6));
+    for(let t=s0+k*step; t<b; t=s0+(++k)*step){
+      if(t<now+.05) continue;
+      const tmp=[]; COLLECT=tmp; try{ sfx.metro(t); } finally{ COLLECT=false; }
+      tmp.forEach(n=>METRO.nodes.push({ n, at:t }));
+    }
+  }
+  METRO.pts=pts; METRO.until=end;
+  METRO.nodes=METRO.nodes.filter(x=>x.at>now-5);
 }
 
 function startRun(id){
@@ -804,7 +840,7 @@ function tickLoop(){
   const step=()=>{
     const cur=db.current;
     const line=$('#restline i');
-    if(cur && cur.iv){ ivTick(); if(cur.type==='R') metroPump(); const clock=$('#clock'); if(clock) clock.textContent=mmss((Date.now()-cur.start)/1000); }
+    if(cur && cur.iv){ ivTick(); const clock=$('#clock'); if(clock) clock.textContent=mmss((Date.now()-cur.start)/1000); }
     else if(cur && view==='workout'){
       const clock=$('#clock'); if(clock) clock.textContent=mmss((Date.now()-cur.start)/1000);
       if(PLAN[cur.type].timed){ if(line) line.style.width='0'; }
@@ -820,7 +856,7 @@ function tickLoop(){
         }
       } else if(line) line.style.width='0';
     } else if(line) line.style.width='0';
-    if(SC.id) SC.update(scLevel(cur));
+    if(AC && (SC.id || (cur && cur.iv && db.settings.metro))){ const pts=scTimeline(); if(SC.id) SC.plan(pts); if(cur && cur.type==='R') metroPlan(pts); }
     setTimeout(step, 200);
   };
   step();
