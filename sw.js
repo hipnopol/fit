@@ -1,5 +1,5 @@
 // Zmień numer wersji po każdej aktualizacji plików, żeby telefon pobrał nową wersję.
-const VERSION = 'fit-v12';
+const VERSION = 'fit-v13';
 const SHELL = ['./', './index.html', './sc.js', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-512.png'];
 
 self.addEventListener('install', e => {
