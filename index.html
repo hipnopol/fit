@@ -616,12 +616,15 @@ function restSchedule(){
   } finally { COLLECT=false; }
 }
 /* ---------- przycisk w słuchawkach (play/pauza) zapisuje serię ---------- */
-let MA=null;
+let MA=null, HS_LAST=0;
+const HS_ACTIONS=['play','pause','stop','nexttrack','previoustrack'];
+// Chrome na Androidzie łączy przyciski słuchawek z kartą tylko wtedy, gdy gra „media” dłuższe niż 5 s,
+// dlatego 30 s praktycznie niesłyszalnego dźwięku w pętli (sama cisza bywa pomijana)
 function silentWav(){
-  const n=8000, b=new ArrayBuffer(44+n), v=new DataView(b), w=(o,t)=>[...t].forEach((c,i)=>v.setUint8(o+i,c.charCodeAt(0)));
-  w(0,'RIFF'); v.setUint32(4,36+n,true); w(8,'WAVE'); w(12,'fmt '); v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
-  v.setUint32(24,8000,true); v.setUint32(28,8000,true); v.setUint16(32,1,true); v.setUint16(34,8,true); w(36,'data'); v.setUint32(40,n,true);
-  for(let i=0;i<n;i++) v.setUint8(44+i,128);
+  const rate=8000, n=rate*30, b=new ArrayBuffer(44+n*2), v=new DataView(b), w=(o,t)=>[...t].forEach((c,i)=>v.setUint8(o+i,c.charCodeAt(0)));
+  w(0,'RIFF'); v.setUint32(4,36+n*2,true); w(8,'WAVE'); w(12,'fmt '); v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
+  v.setUint32(24,rate,true); v.setUint32(28,rate*2,true); v.setUint16(32,2,true); v.setUint16(34,16,true); w(36,'data'); v.setUint32(40,n*2,true);
+  for(let i=0;i<n;i++) v.setInt16(44+i*2, (i&1)?2:-2, true);
   return URL.createObjectURL(new Blob([b],{type:'audio/wav'}));
 }
 function headsetOn(){
@@ -629,15 +632,17 @@ function headsetOn(){
   if(!MA){ MA=new Audio(silentWav()); MA.loop=true; }
   MA.play().catch(()=>{});
   try{ navigator.mediaSession.metadata=new MediaMetadata({ title:'Fit: '+curName(db.current), artist:'Przycisk w słuchawkach zapisuje serię' }); }catch(e){}
-  ['play','pause','nexttrack'].forEach(a=>{ try{ navigator.mediaSession.setActionHandler(a, headsetPress); }catch(e){} });
+  HS_ACTIONS.forEach(a=>{ try{ navigator.mediaSession.setActionHandler(a, headsetPress); }catch(e){} });
   try{ navigator.mediaSession.playbackState='playing'; }catch(e){}
 }
 function headsetOff(){
   if(MA) MA.pause();
-  if('mediaSession' in navigator) ['play','pause','nexttrack'].forEach(a=>{ try{ navigator.mediaSession.setActionHandler(a, null); }catch(e){} });
+  if('mediaSession' in navigator) HS_ACTIONS.forEach(a=>{ try{ navigator.mediaSession.setActionHandler(a, null); }catch(e){} });
 }
 function headsetPress(){
   if(MA) MA.play().catch(()=>{});
+  try{ navigator.mediaSession.playbackState='playing'; }catch(e){}
+  if(Date.now()-HS_LAST<700) return; HS_LAST=Date.now();
   const cur=db.current; if(!cur) return;
   if(cur.type==='R' || cur.iv){ const iv=cur.iv, st=iv&&iv.steps[iv.i]; if(!st) return;
     if(st.open){ const b=$('[data-a=ivdone]'); if(b) b.click(); }
@@ -654,12 +659,13 @@ function headsetPress(){
 }
 
 /* ---------- tempo: metronom serii z liczbą powtórzeń z planu ---------- */
+const TP_LEAD=5;   // sekundy na przygotowanie przed pierwszym powtórzeniem
 const TEMPO_WORDS=['w dół','pauza','w górę','góra'];
 const tempoKey = (ex,en) => en.variant || ex.id;
 function tempoOn(ex,en){ const sp=spec(ex,en); return !!sp.tempo && !(db.settings.tempoOff||{})[tempoKey(ex,en)]; }
 function tpBuild(tempo, reps, sides){
   const seg=[]; let t=0;
-  seg.push({ k:'lead', s:0, d:3 }); t=3;
+  seg.push({ k:'lead', s:0, d:TP_LEAD }); t=TP_LEAD;
   for(let side=1; side<=sides; side++){
     if(side>1){ seg.push({ k:'switch', s:t, d:5, side }); t+=5; }
     for(let r=1; r<=reps; r++) tempo.forEach((d,ph)=>{ if(d>0){ seg.push({ k:'ph', ph, rep:r, side, s:t, d }); t+=d; } });
@@ -675,7 +681,7 @@ function tpSchedule(){
   try{
     tp.seg.forEach(g=>{
       const at=base+g.s;
-      if(g.k==='lead'){ [0,1,2].forEach(k=>{ if(at+k>c.currentTime) sfx.beep(false, at+k); }); return; }
+      if(g.k==='lead'){ for(let k=0;k<TP_LEAD;k++){ if(at+k>c.currentTime) sfx.beep(k>=TP_LEAD-3, at+k); } return; }
       if(g.k==='switch'){ if(at>c.currentTime) sfx.rest(at); [2,3,4].forEach(k=>{ if(at+k>c.currentTime) sfx.beep(false, at+k); }); return; }
       if(at<c.currentTime) return;
       if(g.ph===0){ sfx.tdown(at); for(let k=1;k<g.d;k++) sfx.tsec(at+k); }
@@ -705,7 +711,7 @@ function tpTick(){
   if(st.el>=tp.total){ tpFinish(true); return; }
   const r=$('#tpRep'), ph=$('#tpPh');
   if(r) r.textContent = (st.g && st.g.k==='ph' ? Math.min(st.done+1, tp.reps) : st.done)+' / '+tp.reps;
-  if(ph) ph.textContent = !st.g ? '' : st.g.k==='lead' ? 'start za '+Math.ceil(3-st.el) : st.g.k==='switch' ? 'zmiana strony' : (tp.words[st.g.ph]||TEMPO_WORDS[st.g.ph]) + (tp.sides>1 ? ', strona '+st.side : '');
+  if(ph) ph.textContent = !st.g ? '' : st.g.k==='lead' ? 'start za '+Math.ceil(TP_LEAD-st.el) : st.g.k==='switch' ? 'zmiana strony' : (tp.words[st.g.ph]||TEMPO_WORDS[st.g.ph]) + (tp.sides>1 ? ', strona '+st.side : '');
 }
 function tpFinish(full){
   const cur=db.current, tp=cur.tp; if(!tp) return;
