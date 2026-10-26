@@ -151,8 +151,13 @@ h2{font-size:26px;line-height:1.2;font-weight:500;margin:0;letter-spacing:-.01em
 .metro .mt{text-align:left;padding:0 14px}
 .metro .mt.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .metro span{text-align:center;font-variant-numeric:tabular-nums;padding:0 4px;white-space:nowrap;font-size:14px}
+.scsel{margin-top:30px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chips button{border:1px solid var(--line);padding:9px 12px;color:var(--mid);font-size:14px}
+.chips button.on{background:var(--ink);border-color:var(--ink);color:var(--bg)}
 @media (prefers-reduced-motion:reduce){.seg,.res .l,.res .pr{transition:none}}
 </style>
+<script src="sc.js"></script>
 </head>
 <body>
 <div id="restline"><i></i></div>
@@ -270,9 +275,9 @@ const KEY = 'fit.v1';
 let db = load();
 function load(){
   try{ const s = JSON.parse(localStorage.getItem(KEY));
-    if(s && Array.isArray(s.sessions)) return { sessions:s.sessions, current:s.current||null, settings:Object.assign({sound:true,vib:true,headset:false}, s.settings) };
+    if(s && Array.isArray(s.sessions)) return { sessions:s.sessions, current:s.current||null, settings:Object.assign({sound:true,vib:true,headset:false,sc:'off',scVol:.5}, s.settings) };
   }catch(e){}
-  return { sessions:[], current:null, settings:{sound:true, vib:true, headset:false} };
+  return { sessions:[], current:null, settings:{sound:true, vib:true, headset:false, sc:'off', scVol:.5} };
 }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(db)); }catch(e){} }
 try{ navigator.storage && navigator.storage.persist && navigator.storage.persist(); }catch(e){}
@@ -344,10 +349,10 @@ const sfx = {
     const y=tone(c, t, 'sine', f*2, len*0.7, v*0.4, 0.002); out(c, y.g); y.o.start(t); y.o.stop(y.end);
   },
   // tempo: początek opuszczania (niski), kolejne sekundy (cichsze), ruch w górę (wysoki)
-  tdown(at){ const c=ac(); if(!c||!db.settings.sound) return; const x=tone(c, at, 'triangle', 392, 0.14, 0.55, 0.003); out(c, x.g); x.o.start(at); x.o.stop(x.end); },
-  tsec(at){ const c=ac(); if(!c||!db.settings.sound) return; const x=tone(c, at, 'triangle', 330, 0.06, 0.35, 0.002); out(c, x.g); x.o.start(at); x.o.stop(x.end); },
-  tup(at){ const c=ac(); if(!c||!db.settings.sound) return; const x=tone(c, at, 'square', 988, 0.1, 0.4, 0.002); out(c, x.g, 4500); x.o.start(at); x.o.stop(x.end); },
-  metro(at){ const c=ac(); if(!c||!db.settings.sound) return; burst(c, at, 0.02, 2400, 2, 0.6); const x=tone(c, at, 'sine', 1150, 0.035, 0.3, 0.002); out(c, x.g); x.o.start(at); x.o.stop(x.end); },
+  tdown(at){ if(typeof SC!=='undefined' && SC.voice('tdown', at, this._d)) return; const c=ac(); if(!c||!db.settings.sound) return; const x=tone(c, at, 'triangle', 392, 0.14, 0.55, 0.003); out(c, x.g); x.o.start(at); x.o.stop(x.end); },
+  tsec(at){ if(typeof SC!=='undefined' && SC.voice('tsec', at, this._d)) return; const c=ac(); if(!c||!db.settings.sound) return; const x=tone(c, at, 'triangle', 330, 0.06, 0.35, 0.002); out(c, x.g); x.o.start(at); x.o.stop(x.end); },
+  tup(at){ if(typeof SC!=='undefined' && SC.voice('tup', at, this._d)) return; const c=ac(); if(!c||!db.settings.sound) return; const x=tone(c, at, 'square', 988, 0.1, 0.4, 0.002); out(c, x.g, 4500); x.o.start(at); x.o.stop(x.end); },
+  metro(at){ if(typeof SC!=='undefined' && SC.voice('metro', at, this._d)) return; const c=ac(); if(!c||!db.settings.sound) return; burst(c, at, 0.02, 2400, 2, 0.6); const x=tone(c, at, 'sine', 1150, 0.035, 0.3, 0.002); out(c, x.g); x.o.start(at); x.o.stop(x.end); },
   tick(v=0.12, at){ const c=ac(); if(!c||!db.settings.sound) return; burst(c, at || c.currentTime+0.003, 0.012, 4800, 3, v); },
   // koniec przerwy: drewniany klocek, dwa tony
   wood(at){ this.blocks([392, 523.25], at); },
@@ -436,7 +441,7 @@ function toast(msg){ const t=document.createElement('div'); t.className='toast';
 
 /* ================== akcje ================== */
 function startWorkout(type){
-  ac();
+  ac(); SC.start(db.settings.sc);
   db.current = { id:Date.now().toString(36), type, start:Date.now(), idx:0, act:false, restEnd:0, restTotal:0,
     entries: PLAN[type].ex.map(ex=>({ key:ex.id, variant: ex.variants ? lastVariant(ex) : null, sets:[] })) };
   save(); ui.draft=null; ui.editing=null; view='workout'; wake(); render();
@@ -447,7 +452,7 @@ function ivStart(steps, owner){
   const c=db.current; c.iv={ steps, i:0, t0:Date.now(), paused:false, pAt:0, log:[], owner };
   ac(); keepAlive(true); ivSchedule(); save(); wake(); render(); scrollTo(0,0);
 }
-function ivCancel(){ SCHED.forEach(n=>{ try{ n.stop(); }catch(e){} }); SCHED=[]; }
+function ivCancel(){ SCHED.forEach(n=>{ try{ n.stop(); }catch(e){} }); SCHED=[]; if(typeof SC!=='undefined') SC.duckReset(); }
 function ivSchedule(){
   ivCancel();
   const iv=db.current && db.current.iv; if(!iv || iv.paused || !db.settings.sound) return;
@@ -462,6 +467,7 @@ function ivSchedule(){
       const lead = iv.steps[j].dur>=30 ? 10 : 3;
       for(let k=lead;k>=0.5;k-=(k>3?1:0.5)){ if(at-k > c.currentTime+0.02) sfx.beep(k<=3, at-k); }
       if(at > c.currentTime){ if(!nx || nx.k!=='work') sfx.rest(at); else sfx.go(at); }
+      SC.duckWin(at-lead-.2, at+.6);
       if(!nx || !nx.dur) break;
       j++; endMs += nx.dur*1000;
     }
@@ -560,7 +566,7 @@ function metroPump(){
 }
 
 function startRun(id){
-  ac();
+  ac(); SC.start(db.settings.sc);
   db.current = { id:Date.now().toString(36), type:'R', runId:id, start:Date.now(), idx:0, entries:[], iv:null };
   ui.locked=false; view='workout'; cadStart();
   ivStart(RUN[id].steps.map(x=>Object.assign({}, x)), null);
@@ -578,13 +584,13 @@ async function finishRun(auto){
   const done=work.filter(i=>log[i]!==undefined).length;
   const workMs=work.reduce((a,i)=>a+(log[i]||0),0), cad = (c.cadSteps||0)>=100 && workMs>60000 ? Math.round(c.cadSteps/(workMs/60000)) : null;
   ivStop(); cadStop(); metroCancel();
-  if(!done && !keys.length){ db.current=null; save(); sleep(); ui.locked=false; view='home'; render(); return; }
+  if(!done && !keys.length){ db.current=null; save(); sleep(); SC.stop(); ui.locked=false; view='home'; render(); return; }
   const prev=best5k(), k5=keys.find(k=>k.tag==='5k');
   const sess={ id:c.id, type:'R', runId:c.runId, name:run.group+', '+run.name, start:c.start, end, entries:[], done, total:work.length, keys, hip:null, cad };
   db.sessions.push(sess);
   ui.results={ run:true, cad, sid:sess.id, title:run.group+', '+run.name.toLowerCase(), time:(end-c.start)/1000, done, total:work.length, keys,
     pr: k5 ? (prev===null ? 'Pierwszy pomiar 5 km' : k5.ms<prev ? 'Rekord na 5 km, o '+mmss((prev-k5.ms)/1000)+' szybciej' : 'Najlepsze 5 km: '+mmss(prev/1000)) : null };
-  db.current=null; ui.locked=false; save(); sleep(); view='results'; render(); playResults();
+  db.current=null; ui.locked=false; save(); sleep(); SC.stop(2.5); view='results'; render(); playResults();
 }
 function timedGo(i){
   const c=db.current;
@@ -613,15 +619,19 @@ function restSchedule(){
     const at=c.currentTime+(cur.restEnd-Date.now())/1000;
     for(let k=10;k>=0.5;k-=(k>3?1:0.5)){ const t=at-k; if(t>c.currentTime+0.02) sfx.beep(k<=3, t); }
     if(at>c.currentTime) sfx.wood(at);
+    SC.duckWin(at-10.2, at+.6);
   } finally { COLLECT=false; }
 }
 /* ---------- przycisk w słuchawkach (play/pauza) zapisuje serię ---------- */
-let MA=null;
+let MA=null, HS_LAST=0;
+const HS_ACTIONS=['play','pause','stop','nexttrack','previoustrack'];
+// Chrome na Androidzie łączy przyciski słuchawek z kartą tylko wtedy, gdy gra „media” dłuższe niż 5 s,
+// dlatego 30 s praktycznie niesłyszalnego dźwięku w pętli (sama cisza bywa pomijana)
 function silentWav(){
-  const n=8000, b=new ArrayBuffer(44+n), v=new DataView(b), w=(o,t)=>[...t].forEach((c,i)=>v.setUint8(o+i,c.charCodeAt(0)));
-  w(0,'RIFF'); v.setUint32(4,36+n,true); w(8,'WAVE'); w(12,'fmt '); v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
-  v.setUint32(24,8000,true); v.setUint32(28,8000,true); v.setUint16(32,1,true); v.setUint16(34,8,true); w(36,'data'); v.setUint32(40,n,true);
-  for(let i=0;i<n;i++) v.setUint8(44+i,128);
+  const rate=8000, n=rate*30, b=new ArrayBuffer(44+n*2), v=new DataView(b), w=(o,t)=>[...t].forEach((c,i)=>v.setUint8(o+i,c.charCodeAt(0)));
+  w(0,'RIFF'); v.setUint32(4,36+n*2,true); w(8,'WAVE'); w(12,'fmt '); v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
+  v.setUint32(24,rate,true); v.setUint32(28,rate*2,true); v.setUint16(32,2,true); v.setUint16(34,16,true); w(36,'data'); v.setUint32(40,n*2,true);
+  for(let i=0;i<n;i++) v.setInt16(44+i*2, (i&1)?2:-2, true);
   return URL.createObjectURL(new Blob([b],{type:'audio/wav'}));
 }
 function headsetOn(){
@@ -629,15 +639,17 @@ function headsetOn(){
   if(!MA){ MA=new Audio(silentWav()); MA.loop=true; }
   MA.play().catch(()=>{});
   try{ navigator.mediaSession.metadata=new MediaMetadata({ title:'Fit: '+curName(db.current), artist:'Przycisk w słuchawkach zapisuje serię' }); }catch(e){}
-  ['play','pause','nexttrack'].forEach(a=>{ try{ navigator.mediaSession.setActionHandler(a, headsetPress); }catch(e){} });
+  HS_ACTIONS.forEach(a=>{ try{ navigator.mediaSession.setActionHandler(a, headsetPress); }catch(e){} });
   try{ navigator.mediaSession.playbackState='playing'; }catch(e){}
 }
 function headsetOff(){
   if(MA) MA.pause();
-  if('mediaSession' in navigator) ['play','pause','nexttrack'].forEach(a=>{ try{ navigator.mediaSession.setActionHandler(a, null); }catch(e){} });
+  if('mediaSession' in navigator) HS_ACTIONS.forEach(a=>{ try{ navigator.mediaSession.setActionHandler(a, null); }catch(e){} });
 }
 function headsetPress(){
   if(MA) MA.play().catch(()=>{});
+  try{ navigator.mediaSession.playbackState='playing'; }catch(e){}
+  if(Date.now()-HS_LAST<700) return; HS_LAST=Date.now();
   const cur=db.current; if(!cur) return;
   if(cur.type==='R' || cur.iv){ const iv=cur.iv, st=iv&&iv.steps[iv.i]; if(!st) return;
     if(st.open){ const b=$('[data-a=ivdone]'); if(b) b.click(); }
@@ -654,12 +666,13 @@ function headsetPress(){
 }
 
 /* ---------- tempo: metronom serii z liczbą powtórzeń z planu ---------- */
+const TP_LEAD=5;   // sekundy na przygotowanie przed pierwszym powtórzeniem
 const TEMPO_WORDS=['w dół','pauza','w górę','góra'];
 const tempoKey = (ex,en) => en.variant || ex.id;
 function tempoOn(ex,en){ const sp=spec(ex,en); return !!sp.tempo && !(db.settings.tempoOff||{})[tempoKey(ex,en)]; }
 function tpBuild(tempo, reps, sides){
   const seg=[]; let t=0;
-  seg.push({ k:'lead', s:0, d:3 }); t=3;
+  seg.push({ k:'lead', s:0, d:TP_LEAD }); t=TP_LEAD;
   for(let side=1; side<=sides; side++){
     if(side>1){ seg.push({ k:'switch', s:t, d:5, side }); t+=5; }
     for(let r=1; r<=reps; r++) tempo.forEach((d,ph)=>{ if(d>0){ seg.push({ k:'ph', ph, rep:r, side, s:t, d }); t+=d; } });
@@ -675,10 +688,10 @@ function tpSchedule(){
   try{
     tp.seg.forEach(g=>{
       const at=base+g.s;
-      if(g.k==='lead'){ [0,1,2].forEach(k=>{ if(at+k>c.currentTime) sfx.beep(false, at+k); }); return; }
+      if(g.k==='lead'){ for(let k=0;k<TP_LEAD;k++){ if(at+k>c.currentTime) sfx.beep(k>=TP_LEAD-3, at+k); } return; }
       if(g.k==='switch'){ if(at>c.currentTime) sfx.rest(at); [2,3,4].forEach(k=>{ if(at+k>c.currentTime) sfx.beep(false, at+k); }); return; }
       if(at<c.currentTime) return;
-      if(g.ph===0){ sfx.tdown(at); for(let k=1;k<g.d;k++) sfx.tsec(at+k); }
+      if(g.ph===0){ sfx._d=g.d; sfx.tdown(at); for(let k=1;k<g.d;k++) sfx.tsec(at+k); }
       else if(g.ph===2) sfx.tup(at);
       else if(g.d>=2) for(let k=1;k<g.d;k++) sfx.tsec(at+k);
     });
@@ -690,7 +703,7 @@ function tpStart(){
   const reps=Math.max(1, Math.round(num(d.r)));
   cur.restEnd=0; ac(); keepAlive(true);
   cur.tp=Object.assign({ idx:cur.idx, reps, sides:sp.sides||1, tempo:sp.tempo, words:sp.tempoWords||TEMPO_WORDS, t0:Date.now() }, tpBuild(sp.tempo, reps, sp.sides||1));
-  tpSchedule(); save(); wake(); render(); scrollTo(0,0);
+  tpSchedule(); SC.duckHold(true); save(); wake(); render(); scrollTo(0,0);
 }
 function tpState(){
   const tp=db.current.tp, el=(Date.now()-tp.t0)/1000;
@@ -705,20 +718,20 @@ function tpTick(){
   if(st.el>=tp.total){ tpFinish(true); return; }
   const r=$('#tpRep'), ph=$('#tpPh');
   if(r) r.textContent = (st.g && st.g.k==='ph' ? Math.min(st.done+1, tp.reps) : st.done)+' / '+tp.reps;
-  if(ph) ph.textContent = !st.g ? '' : st.g.k==='lead' ? 'start za '+Math.ceil(3-st.el) : st.g.k==='switch' ? 'zmiana strony' : (tp.words[st.g.ph]||TEMPO_WORDS[st.g.ph]) + (tp.sides>1 ? ', strona '+st.side : '');
+  if(ph) ph.textContent = !st.g ? '' : st.g.k==='lead' ? 'start za '+Math.ceil(TP_LEAD-st.el) : st.g.k==='switch' ? 'zmiana strony' : (tp.words[st.g.ph]||TEMPO_WORDS[st.g.ph]) + (tp.sides>1 ? ', strona '+st.side : '');
 }
 function tpFinish(full){
   const cur=db.current, tp=cur.tp; if(!tp) return;
   const st=tpState();
   // przerwane wcześniej: zapisujemy powtórzenia ukończone na bieżącej stronie
   const repsFinal = full ? tp.reps : st.done;
-  cur.tp=null; ivCancel(); keepAlive(false);
+  cur.tp=null; ivCancel(); keepAlive(false); SC.duckHold(false);
   if(cur.idx!==tp.idx){ cur.idx=tp.idx; ui.draft=null; }
   if(repsFinal<1){ sfx.rest(); save(); render(); return; }
   const d=draft(); d.r=repsFinal; ui.editing=null; ui.extra=null;
   saveSet();
 }
-function tpCancel(){ const cur=db.current; if(!cur || !cur.tp) return; cur.tp=null; ivCancel(); keepAlive(false); sfx.rest(); save(); render(); }
+function tpCancel(){ const cur=db.current; if(!cur || !cur.tp) return; cur.tp=null; ivCancel(); keepAlive(false); SC.duckHold(false); sfx.rest(); save(); render(); }
 
 function saveSet(){
   const cur=db.current, ex=PLAN[cur.type].ex[cur.idx], en=cur.entries[cur.idx], sp=spec(ex,en), d=draft();
@@ -753,9 +766,9 @@ async function finish(auto){
     const end=endTime(cur);
     if(entries.length) db.sessions.push({ id:cur.id, type:cur.type, start:cur.start, end, entries });
     ui.results={ type:cur.type, timed:true, time:(end-cur.start)/1000, done:doneSets(cur), total:totalSets(cur), vol:0, prs:[] };
-    db.current=null; save(); sleep(); view='results'; render(); playResults(); return;
+    db.current=null; save(); sleep(); SC.stop(2.5); view='results'; render(); playResults(); return;
   }
-  if(!entries.length){ if(await ask('Brak zapisanych serii. Odrzucić trening?', 'Odrzuć') && db.current===cur){ db.current=null; save(); sleep(); view='home'; render(); } return; }
+  if(!entries.length){ if(await ask('Brak zapisanych serii. Odrzucić trening?', 'Odrzuć') && db.current===cur){ db.current=null; save(); sleep(); SC.stop(); view='home'; render(); } return; }
   if(doneSets(cur)<totalSets(cur) && !(await ask('Nie wszystkie serie są zrobione. Zakończyć i zapisać trening?', 'Zakończ i zapisz'))) return;
   if(db.current!==cur) return;
   const end=endTime(cur);
@@ -772,11 +785,20 @@ async function finish(auto){
   });
   db.sessions.push({ id:cur.id, type:cur.type, start:cur.start, end, entries });
   ui.results={ type:cur.type, time:(end-cur.start)/1000, done:doneSets(cur), total:totalSets(cur), vol, prs };
-  db.current=null; save(); sleep(); view='results'; render(); playResults();
+  db.current=null; save(); sleep(); SC.stop(2.5); view='results'; render(); playResults();
 }
 
 /* ================== timer ================== */
 let lastTick=null, loopOn=false;
+// poziom tła: 0 = odpoczynek (ciemniej, rzadziej), 1 = wysiłek (jaśniej, gęściej)
+function scLevel(cur){
+  if(!cur) return .55;
+  if(cur.iv){ const st=cur.iv.steps[cur.iv.i]; if(!st || cur.iv.paused) return .25; return st.k==='work' ? (st.minor?.9:1) : st.k==='prep' ? .3 : .35; }
+  if(PLAN[cur.type] && PLAN[cur.type].timed) return .45;
+  if(cur.tp) return .8;
+  if(cur.restEnd) return .3;
+  return .6;
+}
 function tickLoop(){
   if(loopOn) return; loopOn=true;
   const step=()=>{
@@ -798,6 +820,7 @@ function tickLoop(){
         }
       } else if(line) line.style.width='0';
     } else if(line) line.style.width='0';
+    if(SC.id) SC.update(scLevel(cur));
     setTimeout(step, 200);
   };
   step();
@@ -839,7 +862,12 @@ function vHome(){
   h += `<button class="plan" data-a="start" data-t="P">
       <div class="row"><span class="big">Pobudka</span><span class="small mid">około 5 min${lp?', ostatnio '+ago(lp.start):''}</span></div>
       <p>${PLAN.P.ex.map(e=>e.name).join(', ')}</p></button>`;
-  h += `</div><div class="links">
+  const scv=Math.round((db.settings.scVol??.5)*100);
+  h += `</div><div class="scsel"><div class="row"><span class="mid small">Tło dźwiękowe</span><span class="mid small">stuknij, by posłuchać</span></div>
+    <div class="chips">${['off',...SC.IDS].map(id=>`<button data-a="sc" data-v="${id}" class="${(db.settings.sc||'off')===id?'on':''}">${id==='off'?'Bez tła':SC.P[id].name}</button>`).join('')}</div>
+    ${db.settings.sc && db.settings.sc!=='off' ? `<div class="metro" style="margin-top:8px"><span class="mid small" style="text-align:left">głośność tła</span><button data-a="scdec" aria-label="ciszej">−</button><span>${scv}%</span><button data-a="scinc" aria-label="głośniej">+</button></div>` : ''}
+  </div>`;
+  h += `<div class="links">
     <button data-a="history">Historia</button>
     <button data-a="export">Zapisz kopię</button>
     <button data-a="import">Wczytaj kopię</button>
@@ -1093,15 +1121,17 @@ document.addEventListener('click', async e=>{
     case 'lock': ui.locked=true; render(); ivPaint(); break;
     case 'hip': { const ss=db.sessions.find(x=>x.id===ui.results.sid); if(ss){ ss.hip=b.dataset.v; save(); }
       document.querySelectorAll('[data-a=hip]').forEach(x=>x.classList.toggle('on', x.dataset.v===b.dataset.v)); sfx.tick(.2); break; }
-    case 'discard': if(cur && await ask('Odrzucić niezakończony trening? Zapisane w nim serie przepadną.', 'Odrzuć')){ ivStop(); db.current=null; save(); sleep(); render(); } break;
+    case 'discard': if(cur && await ask('Odrzucić niezakończony trening? Zapisane w nim serie przepadną.', 'Odrzuć')){ ivStop(); db.current=null; save(); sleep(); SC.stop(); render(); } break;
     case 'finishcur': view='workout'; render(); finish(); break;
     case 'resume': view='workout'; wake(); render(); ivPaint(); break;
     case 'home': view='home'; ui.results=null; if(!(cur && cur.iv)) sleep(); render(); scrollTo(0,0); break;
     case 'history': view='history'; render(); break;
     case 'open': ui.open = ui.open===b.dataset.id?null:b.dataset.id; render(); break;
     case 'del': if(await ask('Usunąć ten trening z historii?', 'Usuń')){ db.sessions=db.sessions.filter(s=>s.id!==b.dataset.id); save(); render(); } break;
-    case 'sound': db.settings.sound=!db.settings.sound; save(); render(); if(db.settings.sound){ ac(); sfx.click(); } break;
+    case 'sound': db.settings.sound=!db.settings.sound; save(); render(); if(db.settings.sound){ ac(); sfx.click(); if(db.current) SC.start(db.settings.sc); } else SC.stop(.5); break;
     case 'vib': db.settings.vib=!db.settings.vib; save(); render(); buzz(30); break;
+    case 'sc': db.settings.sc=b.dataset.v; save(); render(); ac(); if(b.dataset.v==='off') SC.stop(); else SC.preview(b.dataset.v); break;
+    case 'scdec': case 'scinc': db.settings.scVol=Math.max(.1, Math.min(1, Math.round(((db.settings.scVol??.5)+(a==='scinc'?.1:-.1))*10)/10)); save(); SC.setVol(); render(); break;
     case 'headset': db.settings.headset=!db.settings.headset; save(); render();
       if(db.settings.headset) toast('Na treningu przycisk play/pauza w słuchawkach zapisze serię. Może wstrzymywać muzykę.'); else headsetOff(); break;
     case 'export': {
@@ -1141,7 +1171,7 @@ document.addEventListener('click', async e=>{
 });
 let holdT=null;
 document.addEventListener('pointerdown', e=>{
-  if(AC===null || (AC && AC.state==='suspended')){ ac(); if(db.current && db.current.iv){ keepAlive(true); ivSchedule(); } else if(db.current && db.current.tp){ keepAlive(true); tpSchedule(); } else if(db.current && db.current.restEnd) restSchedule(); }
+  if(AC===null || (AC && AC.state==='suspended')){ ac(); if(db.current && !SC.id) SC.start(db.settings.sc); if(db.current && db.current.iv){ keepAlive(true); ivSchedule(); } else if(db.current && db.current.tp){ keepAlive(true); tpSchedule(); } else if(db.current && db.current.restEnd) restSchedule(); }
   const h=e.target.closest('#hold'); if(!h) return;
   h.classList.add('on'); holdT=setTimeout(()=>{ ui.locked=false; sfx.tick(.25); render(); ivPaint(); }, 700);
 });
