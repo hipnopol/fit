@@ -50,13 +50,15 @@ h2{font-size:26px;line-height:1.2;font-weight:500;margin:0;letter-spacing:-.01em
 .resume{display:block;width:100%;margin:24px 0 8px;padding:18px;background:var(--ink);color:var(--bg);font-weight:500}
 
 /* progress */
-.bar{display:flex;gap:7px;margin:18px 0 6px;height:12px}
+.bar{display:flex;gap:7px;margin:18px 0 10px;height:12px}
 .grp{display:flex;gap:2px;flex:var(--n) 1 0}
 .seg{flex:1;background:var(--faint);transition:background .15s}
 .seg.done{background:var(--ink)}
 .seg.next{background:transparent;box-shadow:inset 0 0 0 1px var(--ink)}
-.grp.cur{position:relative}
-.grp.cur::after{content:"";position:absolute;left:0;right:0;bottom:-6px;height:1px;background:var(--mid)}
+.grp{position:relative}
+.grp.pair::before{content:"";position:absolute;left:0;right:0;bottom:-6px;height:1px;background:var(--mid)}
+.grp.pair.join::before{right:-7px}
+.grp.cur::after{content:"";position:absolute;left:0;right:0;bottom:-8px;height:3px;background:var(--ink)}
 
 /* workout */
 .act{display:block;margin:18px 0 0;padding:6px 0;font-size:13px;color:var(--mid)}
@@ -922,7 +924,8 @@ function vWorkout(){
   h += `<div class="bar" role="img" aria-label="Postęp: ${done} z ${total} serii">` + plan.ex.map((e,i)=>{
     const n=cur.entries[i].sets.length;
     let segs=''; for(let k=0;k<e.sets;k++) segs+=`<span class="seg ${k<n?'done':(i===cur.idx&&k===n?'next':'')}"></span>`;
-    return `<button class="grp ${i===cur.idx?'cur':''}" style="--n:${e.sets}" data-a="go" data-i="${i}" aria-label="${e.name}">${segs}</button>`;
+    const nx=plan.ex[i+1], pair = e.circuit ? (nx && nx.circuit===e.circuit ? 'pair join' : 'pair') : '';   // superseria: wspólna linia pod spodem
+    return `<button class="grp ${pair} ${i===cur.idx?'cur':''}" style="--n:${e.sets}" data-a="go" data-i="${i}" aria-label="${e.name}${e.circuit?', superseria':''}">${segs}</button>`;
   }).join('') + `</div><div class="row small mid" style="margin-top:10px"><span>${cur.idx+1} z ${plan.ex.length}</span><span>${done}/${total}</span></div>`;
   if(cur.idx===0 || !cur.act) h += `<button class="act" data-a="act">${cur.act?'<b>✓</b> ':'○ '}${ACTIVATION}</button>`;
 
