@@ -306,6 +306,8 @@ const ui = { draft:null, editing:null, results:null, open:null, extra:null };
 /* ================== dźwięk ================== */
 let AC = null, COLLECT = false, SCHED = [], KA = null;
 function ac(){
+  // dźwięk wyłączony: aplikacja nie otwiera kanału audio, więc nie przerywa muzyki z innych aplikacji
+  if(!db.settings.sound){ if(AC && AC.state==='running') AC.suspend(); return null; }
   if(!AC){ const C = window.AudioContext || window.webkitAudioContext; if(!C) return null; AC = new C(); }
   if(AC.state === 'suspended') AC.resume();
   return AC;
@@ -671,7 +673,7 @@ function silentWav(){
   return URL.createObjectURL(new Blob([b],{type:'audio/wav'}));
 }
 function headsetOn(){
-  if(!db.settings.headset || !db.current || !('mediaSession' in navigator)) return;
+  if(!db.settings.sound || !db.settings.headset || !db.current || !('mediaSession' in navigator)) return;
   if(!MA){ MA=new Audio(silentWav()); MA.loop=true; }
   MA.play().catch(()=>{});
   try{ navigator.mediaSession.metadata=new MediaMetadata({ title:'Fit: '+curName(db.current), artist:'Przycisk w słuchawkach zapisuje serię' }); }catch(e){}
@@ -849,7 +851,7 @@ function tickLoop(){
         const left=(cur.restEnd-Date.now())/1000;
         if(left<=0){
           cur.restEnd=0; save(); keepAlive(false);
-          buzz([70,60,70]); render();
+          buzz(db.settings.sound ? [70,60,70] : [400,150,400,150,400]); render();
         }else{
           const t=$('#restT'); if(t) t.textContent=mmss(Math.ceil(left));
           if(line) line.style.width=(100*left/cur.restTotal)+'%';
@@ -907,7 +909,7 @@ function vHome(){
     <button data-a="history">Historia</button>
     <button data-a="export">Zapisz kopię</button>
     <button data-a="import">Wczytaj kopię</button>
-    <button data-a="sound">Dźwięk: ${db.settings.sound?'wł.':'wył.'}</button>
+    <button data-a="sound">Dźwięk: ${db.settings.sound?'wł.':'wył. (nie przerywa muzyki)'}</button>
     <button data-a="vib">Wibracje: ${db.settings.vib?'wł.':'wył.'}</button>
     <button data-a="headset">Przycisk w słuchawkach: ${db.settings.headset?'wł.':'wył.'}</button>
   </div><input type="file" id="file" accept="application/json,.json" hidden>`;
@@ -1164,7 +1166,8 @@ document.addEventListener('click', async e=>{
     case 'history': view='history'; render(); break;
     case 'open': ui.open = ui.open===b.dataset.id?null:b.dataset.id; render(); break;
     case 'del': if(await ask('Usunąć ten trening z historii?', 'Usuń')){ db.sessions=db.sessions.filter(s=>s.id!==b.dataset.id); save(); render(); } break;
-    case 'sound': db.settings.sound=!db.settings.sound; save(); render(); if(db.settings.sound){ ac(); sfx.click(); if(db.current) SC.start(db.settings.sc); } else SC.stop(.5); break;
+    case 'sound': db.settings.sound=!db.settings.sound; save(); render(); if(db.settings.sound){ ac(); sfx.click(); if(db.current) SC.start(db.settings.sc); if(db.current){ headsetOn(); if(db.current.iv) ivSchedule(); else if(db.current.tp) tpSchedule(); else if(db.current.restEnd) restSchedule(); } }
+      else { SC.stop(.2); ivCancel(); metroCancel(); keepAlive(false); headsetOff(); setTimeout(()=>{ if(!db.settings.sound && AC) AC.suspend(); }, 400); toast('Bez dźwięku: aplikacja nie przerywa muzyki. Koniec przerwy poczujesz wibracją.'); } break;
     case 'vib': db.settings.vib=!db.settings.vib; save(); render(); buzz(30); break;
     case 'sc': db.settings.sc=b.dataset.v; save(); render(); ac(); if(b.dataset.v==='off') SC.stop(); else SC.preview(b.dataset.v); break;
     case 'scdec': case 'scinc': db.settings.scVol=Math.max(.1, Math.min(1, Math.round(((db.settings.scVol??.5)+(a==='scinc'?.1:-.1))*10)/10)); save(); SC.setVol(); render(); break;
